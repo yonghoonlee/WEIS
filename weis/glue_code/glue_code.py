@@ -1,15 +1,15 @@
 import numpy as np
 import openmdao.api as om
 #from wisdem.glue_code.gc_WT_DataStruc import WindTurbineOntologyOpenMDAO
-#from wisdem.glue_code.glue_code import WindPark
-from wisdem.glue_code.glue_code import WT_RNTA as wisdemWT
+from wisdem.glue_code.glue_code import WindPark as wisdemPark
+#from wisdem.glue_code.glue_code import WT_RNTA as wisdemWT
 #from wisdem.ccblade.ccblade_component import CCBladeTwist
 #from wisdem.commonse.turbine_class import TurbineClass
 #from wisdem.drivetrainse.drivetrain import DrivetrainSE
 from wisdem.towerse.tower import TowerSE
 #from wisdem.nrelcsm.nrel_csm_cost_2015 import Turbine_CostsSE_2015
-from wisdem.orbit.api.wisdem.fixed import Orbit
-from wisdem.landbosse.landbosse_omdao.landbosse import LandBOSSE
+#from wisdem.orbit.api.wisdem.fixed import Orbit
+#from wisdem.landbosse.landbosse_omdao.landbosse import LandBOSSE
 from wisdem.plant_financese.plant_finance import PlantFinance
 #from wisdem.commonse.turbine_constraints  import TurbineConstraints
 from weis.aeroelasticse.openmdao_openfast import FASTLoadCases, ModesElastoDyn
@@ -22,7 +22,7 @@ from wisdem.glue_code.gc_RunTools import Convergence_Trends_Opt
 from weis.glue_code.gc_RunTools import Outputs_2_Screen
 
 
-class WT_RNTA(om.Group):
+class WindPark(om.Group):
     # Openmdao group to run the analysis of the wind turbine
     
     def initialize(self):
@@ -65,7 +65,7 @@ class WT_RNTA(om.Group):
         self.add_subsystem('tune_rosco_ivc',tune_rosco_ivc)
 
         # Analysis components
-        self.add_subsystem('wisdem',   wisdemWT(modeling_options = modeling_options, opt_options = opt_options), promotes=['*'])
+        self.add_subsystem('wisdem',   wisdemPark(modeling_options = modeling_options, opt_options = opt_options), promotes=['*'])
         self.add_subsystem('xf',        RunXFOIL(modeling_options = modeling_options, opt_options = opt_options)) # Recompute polars with xfoil (for flaps)
     
         if modeling_options['Analysis_Flags']['OpenFAST']:
@@ -74,6 +74,13 @@ class WT_RNTA(om.Group):
             self.add_subsystem('freq_tower',        TowerSE(modeling_options=modeling_options))
             self.add_subsystem('sse_tune',          ServoSE_ROSCO(modeling_options = modeling_options)) # Aero analysis
             self.add_subsystem('aeroelastic',       FASTLoadCases(modeling_options = modeling_options, opt_options = opt_options))
+                
+        self.add_subsystem('weis_financese', PlantFinance(verbosity=modeling_options['general']['verbosity']))
+            
+        # Post-processing
+        self.add_subsystem('weis_outputs_2_screen',  Outputs_2_Screen(modeling_options = modeling_options, opt_options = opt_options))
+        if opt_options['opt_flag']:
+            self.add_subsystem('conv_plots',    Convergence_Trends_Opt(opt_options = opt_options))
 
         # Connections to blade 
         self.connect('dac_ivc.te_flap_end',             'blade.outer_shape_bem.span_end')
@@ -389,133 +396,45 @@ class WT_RNTA(om.Group):
             self.connect('xf.Ma_loc',                       'aeroelastic.airfoils_Ma_loc')
             self.connect('xf.flap_angles',                  'aeroelastic.airfoils_Ctrl')
             
-class WindPark(om.Group):
-    # Openmdao group to run the cost analysis of a wind park
-    
-    def initialize(self):
-        self.options.declare('modeling_options')
-        self.options.declare('opt_options')
-        
-    def setup(self):
-        modeling_options = self.options['modeling_options']
-        opt_options     = self.options['opt_options']
-
-        self.add_subsystem('wt',        WT_RNTA(modeling_options = modeling_options, opt_options = opt_options), promotes=['*'])
-        
-        if modeling_options['Analysis_Flags']['BOS']:
-            if modeling_options['offshore']:
-                self.add_subsystem('orbit',     Orbit())
-            else:
-                self.add_subsystem('landbosse', LandBOSSE())
-                
-        self.add_subsystem('financese', PlantFinance(verbosity=modeling_options['general']['verbosity']))
-            
-        # Post-processing
-        self.add_subsystem('outputs_2_screen',  Outputs_2_Screen(modeling_options = modeling_options, opt_options = opt_options))
-        if opt_options['opt_flag']:
-            self.add_subsystem('conv_plots',    Convergence_Trends_Opt(opt_options = opt_options))
-
-        # BOS inputs
-        if modeling_options['Analysis_Flags']['BOS']:
-            if modeling_options['offshore']:
-                # Inputs into ORBIT
-                self.connect('control.rated_power',                   'orbit.turbine_rating')
-                self.connect('env.water_depth',                       'orbit.site_depth')
-                self.connect('costs.turbine_number',                  'orbit.number_of_turbines')
-                self.connect('configuration.n_blades',                'orbit.number_of_blades')
-                self.connect('assembly.hub_height',                   'orbit.hub_height')
-                self.connect('assembly.rotor_diameter',               'orbit.turbine_rotor_diameter')     
-                self.connect('towerse.tower_mass',                    'orbit.tower_mass')
-                self.connect('towerse.monopile_mass',                 'orbit.monopile_mass')
-                self.connect('towerse.monopile_length',               'orbit.monopile_length')
-                self.connect('monopile.transition_piece_mass',        'orbit.transition_piece_mass')
-                self.connect('elastic.precomp.blade_mass',            'orbit.blade_mass')
-                self.connect('tcc.turbine_cost_kW',                   'orbit.turbine_capex')
-                self.connect('drivese.nacelle_mass',                  'orbit.nacelle_mass')
-                self.connect('monopile.diameter',                     'orbit.monopile_diameter', src_indices=[0])
-                self.connect('wt_class.V_mean',                       'orbit.site_mean_windspeed')
-                self.connect('sse.powercurve.rated_V',                'orbit.turbine_rated_windspeed')
-                self.connect('bos.plant_turbine_spacing',             'orbit.plant_turbine_spacing')
-                self.connect('bos.plant_row_spacing',                 'orbit.plant_row_spacing')
-                self.connect('bos.commissioning_pct',                 'orbit.commissioning_pct')
-                self.connect('bos.decommissioning_pct',               'orbit.decommissioning_pct')
-                self.connect('bos.distance_to_substation',            'orbit.plant_substation_distance')
-                self.connect('bos.distance_to_interconnection',       'orbit.interconnection_distance')
-                self.connect('bos.site_distance',                     'orbit.site_distance')
-                self.connect('bos.distance_to_landfall',              'orbit.site_distance_to_landfall')
-                self.connect('bos.port_cost_per_month',               'orbit.port_cost_per_month')
-                self.connect('bos.site_auction_price',                'orbit.site_auction_price')
-                self.connect('bos.site_assessment_plan_cost',         'orbit.site_assessment_plan_cost')
-                self.connect('bos.site_assessment_cost',              'orbit.site_assessment_cost')
-                self.connect('bos.construction_operations_plan_cost', 'orbit.construction_operations_plan_cost')
-                self.connect('bos.boem_review_cost',                  'orbit.boem_review_cost')
-                self.connect('bos.design_install_plan_cost',          'orbit.design_install_plan_cost')
-            else:
-                # Inputs into LandBOSSE
-                self.connect('assembly.hub_height',             'landbosse.hub_height_meters')
-                self.connect('costs.turbine_number',            'landbosse.num_turbines')
-                self.connect('control.rated_power',             'landbosse.turbine_rating_MW')
-                self.connect('env.shear_exp',                   'landbosse.wind_shear_exponent')
-                self.connect('assembly.rotor_diameter',         'landbosse.rotor_diameter_m')
-                self.connect('configuration.n_blades',          'landbosse.number_of_blades')
-                
-                if modeling_options['Analysis_Flags']['OpenFAST'] and modeling_options['openfast']['analysis_settings']['Analysis_Level'] == 2:
-                    self.connect('aeroelastic.rated_T',          'landbosse.rated_thrust_N')
-                elif modeling_options['Analysis_Flags']['ServoSE']:
-                    self.connect('sse.powercurve.rated_T',          'landbosse.rated_thrust_N')
-                    
-                self.connect('towerse.tower_mass',              'landbosse.tower_mass')
-                self.connect('drivese.nacelle_mass',            'landbosse.nacelle_mass')
-                self.connect('elastic.precomp.blade_mass',      'landbosse.blade_mass')
-                self.connect('hub.system_mass',                 'landbosse.hub_mass')
-                self.connect('foundation.height',               'landbosse.foundation_height')
-                self.connect('bos.plant_turbine_spacing',       'landbosse.turbine_spacing_rotor_diameters')
-                self.connect('bos.plant_row_spacing',           'landbosse.row_spacing_rotor_diameters')
-                self.connect('bos.commissioning_pct',           'landbosse.commissioning_pct')
-                self.connect('bos.decommissioning_pct',         'landbosse.decommissioning_pct')
-                self.connect('bos.distance_to_substation',      'landbosse.trench_len_to_substation_km')
-                self.connect('bos.distance_to_interconnection', 'landbosse.distance_to_interconnect_mi')
-                self.connect('bos.interconnect_voltage',        'landbosse.interconnect_voltage_kV')
-            
         # Inputs to plantfinancese from wt group
         if modeling_options['Analysis_Flags']['OpenFAST'] and modeling_options['openfast']['dlc_settings']['run_power_curve'] and modeling_options['openfast']['analysis_settings']['Analysis_Level'] == 2:
-            self.connect('aeroelastic.AEP',     'financese.turbine_aep')
+            self.connect('aeroelastic.AEP',     'weis_financese.turbine_aep')
         elif modeling_options['Analysis_Flags']['ServoSE']:
-            self.connect('sse.AEP',             'financese.turbine_aep')
+            self.connect('sse.AEP',             'weis_financese.turbine_aep')
 
-        self.connect('tcc.turbine_cost_kW',     'financese.tcc_per_kW')
+        self.connect('tcc.turbine_cost_kW',     'weis_financese.tcc_per_kW')
         if modeling_options['Analysis_Flags']['BOS']:
             if 'offshore' in modeling_options and modeling_options['offshore']:
-                self.connect('orbit.total_capex_kW',    'financese.bos_per_kW')
+                self.connect('orbit.total_capex_kW',    'weis_financese.bos_per_kW')
             else:
-                self.connect('landbosse.bos_capex_kW',  'financese.bos_per_kW')
+                self.connect('landbosse.bos_capex_kW',  'weis_financese.bos_per_kW')
         # Inputs to plantfinancese from input yaml
         if modeling_options['flags']['control']:
-            self.connect('control.rated_power',     'financese.machine_rating')
+            self.connect('control.rated_power',     'weis_financese.machine_rating')
             
-        self.connect('costs.turbine_number',    'financese.turbine_number')
-        self.connect('costs.opex_per_kW',       'financese.opex_per_kW')
-        self.connect('costs.offset_tcc_per_kW', 'financese.offset_tcc_per_kW')
-        self.connect('costs.wake_loss_factor',  'financese.wake_loss_factor')
-        self.connect('costs.fixed_charge_rate', 'financese.fixed_charge_rate')
+        self.connect('costs.turbine_number',    'weis_financese.turbine_number')
+        self.connect('costs.opex_per_kW',       'weis_financese.opex_per_kW')
+        self.connect('costs.offset_tcc_per_kW', 'weis_financese.offset_tcc_per_kW')
+        self.connect('costs.wake_loss_factor',  'weis_financese.wake_loss_factor')
+        self.connect('costs.fixed_charge_rate', 'weis_financese.fixed_charge_rate')
 
         # Connections to outputs to screen
         if modeling_options['Analysis_Flags']['ServoSE']:
             if modeling_options['Analysis_Flags']['OpenFAST'] and modeling_options['openfast']['dlc_settings']['run_power_curve'] and modeling_options['openfast']['analysis_settings']['Analysis_Level'] == 2:
-                self.connect('aeroelastic.AEP',     'outputs_2_screen.aep')
+                self.connect('aeroelastic.AEP',     'weis_outputs_2_screen.aep')
             else:
-                self.connect('sse.AEP',             'outputs_2_screen.aep')
-            self.connect('financese.lcoe',          'outputs_2_screen.lcoe')
+                self.connect('sse.AEP',             'weis_outputs_2_screen.aep')
+            self.connect('weis_financese.lcoe',          'weis_outputs_2_screen.lcoe')
             
-        self.connect('elastic.precomp.blade_mass',  'outputs_2_screen.blade_mass')
-        self.connect('rlds.tip_pos.tip_deflection', 'outputs_2_screen.tip_deflection')
+        self.connect('elastic.precomp.blade_mass',  'weis_outputs_2_screen.blade_mass')
+        self.connect('rlds.tip_pos.tip_deflection', 'weis_outputs_2_screen.tip_deflection')
         
         if modeling_options['Analysis_Flags']['OpenFAST'] and modeling_options['openfast']['analysis_settings']['Analysis_Level'] == 2:
-            self.connect('aeroelastic.My_std',      'outputs_2_screen.My_std')
-            self.connect('aeroelastic.flp1_std',    'outputs_2_screen.flp1_std')
-            self.connect('tune_rosco_ivc.PC_omega',        'outputs_2_screen.PC_omega')
-            self.connect('tune_rosco_ivc.PC_zeta',         'outputs_2_screen.PC_zeta')
-            self.connect('tune_rosco_ivc.VS_omega',        'outputs_2_screen.VS_omega')
-            self.connect('tune_rosco_ivc.VS_zeta',         'outputs_2_screen.VS_zeta')
-            self.connect('tune_rosco_ivc.Flp_omega',       'outputs_2_screen.Flp_omega')
-            self.connect('tune_rosco_ivc.Flp_zeta',        'outputs_2_screen.Flp_zeta')
+            self.connect('aeroelastic.My_std',      'weis_outputs_2_screen.My_std')
+            self.connect('aeroelastic.flp1_std',    'weis_outputs_2_screen.flp1_std')
+            self.connect('tune_rosco_ivc.PC_omega',        'weis_outputs_2_screen.PC_omega')
+            self.connect('tune_rosco_ivc.PC_zeta',         'weis_outputs_2_screen.PC_zeta')
+            self.connect('tune_rosco_ivc.VS_omega',        'weis_outputs_2_screen.VS_omega')
+            self.connect('tune_rosco_ivc.VS_zeta',         'weis_outputs_2_screen.VS_zeta')
+            self.connect('tune_rosco_ivc.Flp_omega',       'weis_outputs_2_screen.Flp_omega')
+            self.connect('tune_rosco_ivc.Flp_zeta',        'weis_outputs_2_screen.Flp_zeta')
