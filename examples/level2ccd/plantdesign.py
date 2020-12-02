@@ -151,13 +151,16 @@ class FASTmodel(LinearFAST):
     def prepare_case_inputs(self, SolutionStage, plantdesign_list):
         if SolutionStage == self.SOL_FLG_STEADY:
             self.FAST_runDirectory = self.FAST_steadyDirectory
-            namebase = mdl.casename+'_steady'
+            namebase = self.casename+'_steady'
         elif SolutionStage == self.SOL_FLG_LINEAR:
             self.FAST_runDirectory = self.FAST_linearDirectory
-            namebase = mdl.casename+'_linear'
+            namebase = self.casename+'_linear'
             
         case_inputs = {}
-        case_inputs[("Fst","TMax")]                 = {'vals':[self.TMax], 'group':0}
+        if SolutionStage == self.SOL_FLG_STEADY:
+            case_inputs[("Fst","TMax")]             = {'vals':[self.TMax], 'group':0}
+        elif SolutionStage == self.SOL_FLG_LINEAR:
+            case_inputs[("Fst","TMax")]             = {'vals':[4.0*self.TMax], 'group':0}
         case_inputs[("Fst","DT")]                   = {'vals':[self.DT], 'group':0}
         case_inputs[("Fst","OutFileFmt")]           = {'vals':[self.OutFileFmt], 'group':0} # 1=Text, 2=Binary, 3=Both
         case_inputs[("Fst","DT_Out")]               = {'vals':[self.DT_Out], 'group':0}
@@ -282,22 +285,22 @@ class FASTmodel(LinearFAST):
         
         # Case generation
         case_list, case_name_list = CaseGen_General(
-            case_inputs, dir_matrix=mdl.FAST_runDirectory, namebase=namebase
+            case_inputs, dir_matrix=self.FAST_runDirectory, namebase=namebase
         )
         
         if os.path.isfile(mdl.FAST_runDirectory + os.sep + 'case_matrix.txt'):
             shutil.copy(
-                mdl.FAST_runDirectory + os.sep + 'case_matrix.txt',
-                mdl.FAST_runDirectory + os.sep + namebase + '_case_matrix.txt'
+                self.FAST_runDirectory + os.sep + 'case_matrix.txt',
+                self.FAST_runDirectory + os.sep + namebase + '_case_matrix.txt'
             )
             os.remove(mdl.FAST_runDirectory + os.sep + 'case_matrix.txt')
             
-        if os.path.isfile(mdl.FAST_runDirectory + os.sep + 'case_matrix.yaml'):
+        if os.path.isfile(self.FAST_runDirectory + os.sep + 'case_matrix.yaml'):
             shutil.copy(
-                mdl.FAST_runDirectory + os.sep + 'case_matrix.yaml',
-                mdl.FAST_runDirectory + os.sep + namebase + '_case_matrix.yaml'
+                self.FAST_runDirectory + os.sep + 'case_matrix.yaml',
+                self.FAST_runDirectory + os.sep + namebase + '_case_matrix.yaml'
             )
-            os.remove(mdl.FAST_runDirectory + os.sep + 'case_matrix.yaml')
+            os.remove(self.FAST_runDirectory + os.sep + 'case_matrix.yaml')
         
         # Save results
         self.case_inputs = case_inputs
