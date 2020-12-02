@@ -1,11 +1,13 @@
 # Yong Hoon Lee, University of Illinois at Urbana-Champaign
 
-import os, platform, random
+import os, platform, random, shutil
 import numpy as np
 import weis
 from weis.aeroelasticse.LinearFAST import LinearFAST
 from weis.aeroelasticse.CaseGen_General import CaseGen_General
 from weis.aeroelasticse.FAST_reader import InputReader_OpenFAST
+from weis.aeroelasticse.Util.FileTools import save_yaml, load_yaml
+from pCrunch import Processing
 
 class FASTmodel(LinearFAST):
     
@@ -14,6 +16,7 @@ class FASTmodel(LinearFAST):
     
     def __init__(self, **kwargs):
         self.casename = ''
+        self.outfiles = []
         self.WEIS_root = os.path.dirname(os.path.dirname(os.path.abspath(weis.__file__)))
         self.FAST_steadyDirectory = None
         self.FAST_linearDirectory = None
@@ -51,16 +54,76 @@ class FASTmodel(LinearFAST):
         self.set_DLLpath() # Obtain platform and set controller DLL path
         
     def runFAST_steady(self):
+        # Steady state computation
         if self.parallel:
             self.run_multi(self.cores)
         else:
             self.run_serial()
+            
+        # Output files
+        outfiles = []
+        for cname in self.case_name_list:
+            if os.path.isfile(self.FAST_runDirectory + os.sep + cname + '.outb'):
+                outfiles.append(self.FAST_runDirectory + os.sep + cname + '.outb')
+            elif os.path.isfile(self.FAST_runDirectory + os.sep + cname + '.out'):
+                outfiles.append(self.FAST_runDirectory + os.sep + cname + '.out')
+            else:
+                # outfiles.append(FileNotFoundError)
+                print('FILE NOT FOUND: ' + self.FAST_runDirectory + os.sep + cname + '.outb')
+        self.outfiles = outfiles
+        
+        # Post processing steady state results
+        self.postFAST_steady()
     
-    def postFAST_steady(*args, **kwargs):
-        pass
+    def postFAST_steady(self):
+        fp = Processing.FAST_Processing()
+        fp.OpenFAST_outfile_list = self.outfiles
+        fp.t0 = self.TMax - min(max(min(self.TMax/4.0, 400.0), 200.0), self.TMax)
+        fp.parallel_analysis = self.parallel
+        fp.parallel_cores = self.cores
+        fp.results_dir = os.path.join(self.FAST_runDirectory, 'stats')
+        if self.debug_level == 0:
+            fp.verbose = False
+        else:
+            fp.verbose = True
+        fp.save_LoadRanking = True
+        fp.save_SummaryStats = True
+        
+        # Load and save statistics and load rankings
+        stats, _ = fp.batch_processing()
+        if hasattr(stats, '__len__'):
+            stats = stats[0]
+            
+        windSortInd = np.argsort(stats['Wind1VelX']['mean'])
+        ssChannels = [['Wind1VelX', 'Wind1VelX'],  
+                      ['OoPDefl1',  'OoPDefl'],
+                      ['IPDefl1',   'IPDefl'],
+                      ['BldPitch1', 'BlPitch1'],
+                      ['RotSpeed',  'RotSpeed'],
+                      ['TTDspFA',   'TTDspFA'],
+                      ['TTDspSS',   'TTDspSS'],
+                      ['PtfmSurge', 'PtfmSurge'],
+                      ['PtfmSway',  'PtfmSway'],
+                      ['PtfmHeave', 'PtfmHeave'],
+                      ['PtfmRoll',  'PtfmRoll'],
+                      ['PtfmYaw',   'PtfmYaw'],
+                      ['PtfmPitch', 'PtfmPitch']]
+        ssChanData = {}
+        for iChan in ssChannels:
+            try:
+                ssChanData[iChan[1]] = np.array(stats[iChan[0]]['mean'])[windSortInd].tolist()
+            except:
+                print('Warning: ' + iChan[0] + ' is is not in OutList')
+        
+        save_yaml(self.FAST_runDirectory, self.casename + '_steady_ops.yaml', ssChanData)
+        
     
-    def runFAST_linear(*args, **kwargs):
-        pass
+    def runFAST_linear(self):
+        # Linearization
+        if self.parallel:
+            self.run_multi(self.cores)
+        else:
+            self.run_serial()
     
     def run_mpi(*args, **kwargs):
         print('run_mpi method will not be executed.')
@@ -160,7 +223,7 @@ class FASTmodel(LinearFAST):
                 case_inputs[("ElastoDyn",dof)] = {'vals':['True'], 'group':0}
                 
             # Initial conditions
-            ss_ops = load_yaml(os.path.join(self.FAST_steadyDirectory, 'ss_ops.yaml'))
+            ss_ops = load_yaml(os.path.join(self.FAST_runDirectory, self.casename + '_steady_ops.yaml'))
             uu = ss_ops['Wind1VelX']
             
             for ic in ss_ops:
@@ -221,6 +284,20 @@ class FASTmodel(LinearFAST):
         case_list, case_name_list = CaseGen_General(
             case_inputs, dir_matrix=mdl.FAST_runDirectory, namebase=namebase
         )
+        
+        if os.path.isfile(mdl.FAST_runDirectory + os.sep + 'case_matrix.txt'):
+            shutil.copy(
+                mdl.FAST_runDirectory + os.sep + 'case_matrix.txt',
+                mdl.FAST_runDirectory + os.sep + namebase + '_case_matrix.txt'
+            )
+            os.remove(mdl.FAST_runDirectory + os.sep + 'case_matrix.txt')
+            
+        if os.path.isfile(mdl.FAST_runDirectory + os.sep + 'case_matrix.yaml'):
+            shutil.copy(
+                mdl.FAST_runDirectory + os.sep + 'case_matrix.yaml',
+                mdl.FAST_runDirectory + os.sep + namebase + '_case_matrix.yaml'
+            )
+            os.remove(mdl.FAST_runDirectory + os.sep + 'case_matrix.yaml')
         
         # Save results
         self.case_inputs = case_inputs
@@ -330,9 +407,9 @@ if __name__ == '__main__':
     mdl.prepare_case_inputs(mdl.SOL_FLG_STEADY, plantdesign_list)
     mdl.runFAST_steady()
     
-    # # Linearization
-    # mdl.prepare_case_inputs(mdl.SOL_FLG_LINEAR, plantdesign_list)
-    # mdl.runFAST_linear()
+    # Linearization
+    mdl.prepare_case_inputs(mdl.SOL_FLG_LINEAR, plantdesign_list)
+    mdl.runFAST_linear()
     
     
     
