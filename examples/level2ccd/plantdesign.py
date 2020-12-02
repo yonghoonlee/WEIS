@@ -223,7 +223,7 @@ class FASTmodel(LinearFAST):
                 case_inputs[("ElastoDyn",dof)] = {'vals':['True'], 'group':0}
                 
             # Initial conditions
-            ss_ops = load_yaml(os.path.join(self.FAST_runDirectory, self.casename + '_steady_ops.yaml'))
+            ss_ops = load_yaml(os.path.join(self.FAST_steadyDirectory, self.casename + '_steady_ops.yaml'))
             uu = ss_ops['Wind1VelX']
             
             for ic in ss_ops:
@@ -354,7 +354,7 @@ def set_IEA_UMaine(mdl):
     mdl.OutFileFmt = 2 # 1=Text, 2=Binary, 3=Both
     mdl.TrimGain = 4e-5
     mdl.TrimTol = 1e-5
-    mdl.VS_RtGnSp = 7.56
+    mdl.VS_RtGnSp = 7.56*0.95 # Track 95% of rated generator speed to improve convergence near rated condition
     mdl.VS_RtTq = 19.62e6
     mdl.VS_Rgn2K = 3.7e5
     mdl.VS_SlPc = 10.0
