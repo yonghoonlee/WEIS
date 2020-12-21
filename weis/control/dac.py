@@ -2,7 +2,7 @@ import numpy as np
 import os, sys
 import copy
 from openmdao.api import ExplicitComponent
-from wisdem.ccblade import CCAirfoil
+from wisdem.ccblade.ccblade import CCAirfoil, CCBlade
 from wisdem.ccblade.Polar import Polar
 import csv  # for exporting airfoil polar tables
 import matplotlib.pyplot as plt
@@ -186,16 +186,15 @@ class RunXFOIL(ExplicitComponent):
         self.options.declare('opt_options')
         
     def setup(self):
-        blade_init_options = self.options['modeling_options']['blade']
-        self.n_span        = n_span     = blade_init_options['n_span']
-        self.n_te_flaps    = n_te_flaps = blade_init_options['n_te_flaps']
-        af_init_options    = self.options['modeling_options']['airfoils']
-        self.n_tab         = af_init_options['n_tab']
-        self.n_aoa         = n_aoa      = af_init_options['n_aoa'] # Number of angle of attacks
-        self.n_Re          = n_Re      = af_init_options['n_Re'] # Number of Reynolds, so far hard set at 1
-        self.n_tab         = n_tab     = af_init_options['n_tab']# Number of tabulated data. For distributed aerodynamic control this could be > 1
-        self.n_xy          = n_xy      = af_init_options['n_xy'] # Number of coordinate points to describe the airfoil geometry
-        self.xfoil_path    = af_init_options['xfoil_path']
+        rotorse_options = self.options['modeling_options']['RotorSE']
+        self.n_span        = n_span     = rotorse_options['n_span']
+        self.n_te_flaps    = n_te_flaps = rotorse_options['n_te_flaps']
+        self.n_tab         = rotorse_options['n_tab']
+        self.n_aoa         = n_aoa      = rotorse_options['n_aoa'] # Number of angle of attacks
+        self.n_Re          = n_Re      = rotorse_options['n_Re'] # Number of Reynolds, so far hard set at 1
+        self.n_tab         = n_tab     = rotorse_options['n_tab']# Number of tabulated data. For distributed aerodynamic control this could be > 1
+        self.n_xy          = n_xy      = rotorse_options['n_xy'] # Number of coordinate points to describe the airfoil geometry
+        self.xfoil_path    = self.options['modeling_options']['xfoil']['path']
 
         # Use openfast cores for parallelization of xfoil 
         FASTpref = self.options['modeling_options']['openfast']
@@ -209,7 +208,7 @@ class RunXFOIL(ExplicitComponent):
         except KeyError:
             self.cores = 1
         
-        if MPI and self.options['modeling_options']['Analysis_Flags']['OpenFAST']:
+        if MPI and self.options['modeling_options']['Level3']['flag']:
             self.mpi_comm_map_down = FASTpref['analysis_settings']['mpi_comm_map_down']
 
         # Inputs blade outer shape
@@ -616,8 +615,8 @@ class RunXFOIL(ExplicitComponent):
                         Re_loc[afi,:,:] = Re_loc_af
                         Ma_loc[afi,:,:] = Ma_loc_af
 
-                if not any([self.options['opt_options']['optimization_variables']['blade']['dac']['te_flap_ext']['flag'],
-                            self.options['opt_options']['optimization_variables']['blade']['dac']['te_flap_end']['flag']]):
+                if not any([self.options['opt_options']['design_variables']['control']['flaps']['te_flap_ext']['flag'],
+                            self.options['opt_options']['design_variables']['control']['flaps']['te_flap_end']['flag']]):
                     self.saved_polar_data['cl_interp_flaps'] = copy.copy(cl_interp_flaps)
                     self.saved_polar_data['cd_interp_flaps'] = copy.copy(cd_interp_flaps)
                     self.saved_polar_data['cm_interp_flaps'] = copy.copy(cm_interp_flaps)

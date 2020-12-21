@@ -6,9 +6,9 @@ class PoseOptimization(object):
     def __init__(self, modeling_options, analysis_options):
         self.modeling    = modeling_options
         self.opt         = analysis_options
-        self.blade_opt   = self.opt['optimization_variables']['blade']
-        self.tower_opt   = self.opt['optimization_variables']['tower']
-        self.control_opt = self.opt['optimization_variables']['control']
+        self.blade_opt   = self.opt['design_variables']['blade']
+        self.tower_opt   = self.opt['design_variables']['tower']
+        self.control_opt = self.opt['design_variables']['control']
 
         
     def get_number_design_variables(self):
@@ -24,19 +24,18 @@ class PoseOptimization(object):
             n_DV += self.blade_opt['structure']['spar_cap_ss']['n_opt'] - 2
         if self.blade_opt['structure']['spar_cap_ps']['flag'] and not self.blade_opt['structure']['spar_cap_ps']['equal_to_suction']:
             n_DV += self.blade_opt['structure']['spar_cap_ps']['n_opt'] - 2
-        if self.opt['optimization_variables']['control']['tsr']['flag']:
+        if self.opt['design_variables']['control']['tsr']['flag']:
             n_DV += 1
-        if self.opt['optimization_variables']['control']['servo']['pitch_control']['flag']:
+        if self.opt['design_variables']['control']['servo']['pitch_control']['flag']:
             n_DV += 2
-        if self.opt['optimization_variables']['control']['servo']['torque_control']['flag']:
+        if self.opt['design_variables']['control']['servo']['torque_control']['flag']:
             n_DV += 2
-        if self.opt['optimization_variables']['control']['servo']['flap_control']['flag']:
+        if self.opt['design_variables']['control']['servo']['flap_control']['flag']:
             n_DV += 2
-        if 'dac' in self.blade_opt:
-            if self.blade_opt['dac']['te_flap_end']['flag']:
-                n_DV += self.modeling['blade']['n_te_flaps']
-            if self.blade_opt['dac']['te_flap_ext']['flag']:
-                n_DV += self.modeling['blade']['n_te_flaps']
+        if self.opt['design_variables']['control']['flaps']['te_flap_end']['flag']:
+            n_DV += self.modeling['blade']['n_te_flaps']
+        if self.opt['design_variables']['control']['flaps']['te_flap_ext']['flag']:
+            n_DV += self.modeling['blade']['n_te_flaps']
         if self.tower_opt['outer_diameter']['flag']:
             n_DV += self.modeling['tower']['n_height']
         if self.tower_opt['layer_thickness']['flag']:
@@ -112,9 +111,9 @@ class PoseOptimization(object):
 
         # Set merit figure. Each objective has its own scaling.
         if self.opt['merit_figure'] == 'AEP':
-            wt_opt.model.add_objective('sse.AEP', ref = -1.e6)
+            wt_opt.model.add_objective('rp.AEP', ref = -1.e6)
         elif self.opt['merit_figure'] == 'blade_mass':
-            wt_opt.model.add_objective('elastic.precomp.blade_mass', ref = 1.e4)
+            wt_opt.model.add_objective('re.precomp.blade_mass', ref = 1.e4)
         elif self.opt['merit_figure'] == 'LCOE':
             wt_opt.model.add_objective('financese.lcoe', ref = 0.1)
         elif self.opt['merit_figure'] == 'blade_tip_deflection':
@@ -124,8 +123,8 @@ class PoseOptimization(object):
         elif self.opt['merit_figure'] == 'tower_cost':
             wt_opt.model.add_objective('tcc.tower_cost')
         elif self.opt['merit_figure'] == 'Cp':
-            if self.modeling['Analysis_Flags']['ServoSE']:
-                wt_opt.model.add_objective('sse.powercurve.Cp_regII', ref = -1.)
+            if self.modeling['WISDEM']['RotorSE']:
+                wt_opt.model.add_objective('rp.powercurve.Cp_regII', ref = -1.)
             else:
                 wt_opt.model.add_objective('ccblade.CP', ref = -1.)
         elif self.opt['merit_figure'] == 'My_std':   # for DAC optimization on root-flap-bending moments
@@ -184,17 +183,16 @@ class PoseOptimization(object):
             indices  = range(1, spar_cap_ps_options['n_opt'] - 1)
             wt_opt.model.add_design_var('blade.opt_var.spar_cap_ps_opt_gain', indices = indices, lower=spar_cap_ps_options['min_gain'], upper=spar_cap_ps_options['max_gain'])
 
-        if 'dac' in self.blade_opt:
-            if self.blade_opt['dac']['te_flap_end']['flag']:
-                wt_opt.model.add_design_var('dac_ivc.te_flap_end', 
-                lower=self.blade_opt['dac']['te_flap_end']['min_end'], 
-                upper=self.blade_opt['dac']['te_flap_end']['max_end'], 
-                ref=1e2)
-            if self.blade_opt['dac']['te_flap_ext']['flag']:
-                wt_opt.model.add_design_var('dac_ivc.te_flap_ext', 
-                                    lower=self.blade_opt['dac']['te_flap_ext']['min_ext'], 
-                                    upper=self.blade_opt['dac']['te_flap_ext']['max_ext'],
-                                    ref=1e2)
+        if self.opt['design_variables']['control']['flaps']['te_flap_end']['flag']:
+            wt_opt.model.add_design_var('dac_ivc.te_flap_end', 
+            lower=self.opt['design_variables']['control']['flaps']['te_flap_end']['minimum'], 
+            upper=self.opt['design_variables']['control']['flaps']['maximum'], 
+            ref=1e2)
+        if self.opt['design_variables']['control']['flaps']['te_flap_ext']['flag']:
+            wt_opt.model.add_design_var('dac_ivc.te_flap_ext', 
+                                lower=self.opt['design_variables']['control']['flaps']['te_flap_ext']['min_ext'], 
+                                upper=self.opt['design_variables']['control']['flaps']['te_flap_ext']['max_ext'],
+                                ref=1e2)
 
         if self.tower_opt['outer_diameter']['flag']:
             wt_opt.model.add_design_var('tower.diameter', lower=self.tower_opt['outer_diameter']['lower_bound'], upper=self.tower_opt['outer_diameter']['upper_bound'], ref=5.)
@@ -238,13 +236,13 @@ class PoseOptimization(object):
         blade_constraints = self.opt['constraints']['blade']
         if blade_constraints['strains_spar_cap_ss']['flag']:
             if self.blade_opt['structure']['spar_cap_ss']['flag']:
-                wt_opt.model.add_constraint('rlds.constr.constr_max_strainU_spar', upper= 1.0)
+                wt_opt.model.add_constraint('rs.constr.constr_max_strainU_spar', upper= 1.0)
             else:
                 print('WARNING: the strains of the suction-side spar cap are set to be constrained, but spar cap thickness is not an active design variable. The constraint is not enforced.')
 
         if blade_constraints['strains_spar_cap_ps']['flag']:
             if self.blade_opt['structure']['spar_cap_ps']['flag'] or self.blade_opt['structure']['spar_cap_ps']['equal_to_suction']:
-                wt_opt.model.add_constraint('rlds.constr.constr_max_strainL_spar', upper= 1.0)
+                wt_opt.model.add_constraint('rs.constr.constr_max_strainL_spar', upper= 1.0)
             else:
                 print('WARNING: the strains of the pressure-side spar cap are set to be constrained, but spar cap thickness is not an active design variable. The constraint is not enforced.')
 
@@ -268,18 +266,18 @@ class PoseOptimization(object):
 
         if blade_constraints['frequency']['flap_above_3P']:
             if self.blade_opt['structure']['spar_cap_ss']['flag'] or self.blade_opt['structure']['spar_cap_ps']['flag']:
-                wt_opt.model.add_constraint('rlds.constr.constr_flap_f_margin', upper= 0.0)
+                wt_opt.model.add_constraint('rs.constr.constr_flap_f_margin', upper= 0.0)
             else:
                 print('WARNING: the blade flap frequencies are set to be constrained, but spar caps thickness is not an active design variable. The constraint is not enforced.')
 
         if blade_constraints['frequency']['edge_above_3P']:
-            wt_opt.model.add_constraint('rlds.constr.constr_edge_f_margin', upper= 0.0)
+            wt_opt.model.add_constraint('rs.constr.constr_edge_f_margin', upper= 0.0)
 
         # if blade_constraints['frequency']['flap_below_3P']:
-        #     wt_opt.model.add_constraint('rlds.constr.constr_flap_f_below_3P', upper= 1.0)
+        #     wt_opt.model.add_constraint('rs.constr.constr_flap_f_below_3P', upper= 1.0)
 
         # if blade_constraints['frequency']['edge_below_3P']:
-        #     wt_opt.model.add_constraint('rlds.constr.constr_edge_f_below_3P', upper= 1.0)
+        #     wt_opt.model.add_constraint('rs.constr.constr_edge_f_below_3P', upper= 1.0)
 
         # if blade_constraints['frequency']['flap_above_3P'] and blade_constraints['frequency']['flap_below_3P']:
         #     exit('The blade flap frequency is constrained to be both above and below 3P. Please check the constraint flags.')
@@ -289,11 +287,11 @@ class PoseOptimization(object):
 
         if blade_constraints['rail_transport']['flag']:
             if blade_constraints['rail_transport']['8_axle']:
-                wt_opt.model.add_constraint('elastic.rail.constr_LV_8axle_horiz',   lower = 0.8, upper= 1.0)
-                wt_opt.model.add_constraint('elastic.rail.constr_strainPS',         upper= 1.0)
-                wt_opt.model.add_constraint('elastic.rail.constr_strainSS',         upper= 1.0)
+                wt_opt.model.add_constraint('re.rail.constr_LV_8axle_horiz',   lower = 0.8, upper= 1.0)
+                wt_opt.model.add_constraint('re.rail.constr_strainPS',         upper= 1.0)
+                wt_opt.model.add_constraint('re.rail.constr_strainSS',         upper= 1.0)
             elif blade_constraints['rail_transport']['4_axle']:
-                wt_opt.model.add_constraint('elastic.rail.constr_LV_4axle_horiz', upper= 1.0)
+                wt_opt.model.add_constraint('re.rail.constr_LV_4axle_horiz', upper= 1.0)
             else:
                 exit('You have activated the rail transport constraint module. Please define whether you want to model 4- or 8-axle flatcars.')
 
@@ -301,7 +299,7 @@ class PoseOptimization(object):
             wt_opt.model.add_constraint('ccblade.CM', lower= self.opt['constraints']['blade']['moment_coefficient']['min'], upper= self.opt['constraints']['blade']['moment_coefficient']['max'])
         if self.opt['constraints']['blade']['match_cl_cd']['flag_cl'] or self.opt['constraints']['blade']['match_cl_cd']['flag_cd']:
             data_target = np.loadtxt(self.opt['constraints']['blade']['match_cl_cd']['filename'])
-            eta_opt     = np.linspace(0., 1., self.opt['optimization_variables']['blade']['aero_shape']['twist']['n_opt'])
+            eta_opt     = np.linspace(0., 1., self.opt['design_variables']['blade']['aero_shape']['twist']['n_opt'])
             target_cl   = np.interp(eta_opt, data_target[:,0], data_target[:,3])
             target_cd   = np.interp(eta_opt, data_target[:,0], data_target[:,4])
             eps_cl = 1.e-2
@@ -311,7 +309,7 @@ class PoseOptimization(object):
                 wt_opt.model.add_constraint('ccblade.cd_n_opt', lower = target_cd-eps_cl, upper = target_cd+eps_cl)
         if self.opt['constraints']['blade']['match_L_D']['flag_L'] or self.opt['constraints']['blade']['match_L_D']['flag_D']:
             data_target = np.loadtxt(self.opt['constraints']['blade']['match_L_D']['filename'])
-            eta_opt     = np.linspace(0., 1., self.opt['optimization_variables']['blade']['aero_shape']['twist']['n_opt'])
+            eta_opt     = np.linspace(0., 1., self.opt['design_variables']['blade']['aero_shape']['twist']['n_opt'])
             target_L   = np.interp(eta_opt, data_target[:,0], data_target[:,7])
             target_D   = np.interp(eta_opt, data_target[:,0], data_target[:,8])
         eps_L  = 1.e+2
@@ -335,10 +333,10 @@ class PoseOptimization(object):
         if tower_constraints['shell_buckling']['flag']:
             wt_opt.model.add_constraint('towerse.post.shell_buckling', upper=1.0)
 
-        if tower_constraints['constr_d_to_t']['flag']:
+        if tower_constraints['d_to_t']['flag']:
             wt_opt.model.add_constraint('towerse.constr_d_to_t', upper=0.0)
 
-        if tower_constraints['constr_taper']['flag']:
+        if tower_constraints['taper']['flag']:
             wt_opt.model.add_constraint('towerse.constr_taper', lower=0.0)
 
         if tower_constraints['slope']['flag']:
@@ -351,7 +349,7 @@ class PoseOptimization(object):
 
         control_constraints = self.opt['constraints']['control']
         if control_constraints['flap_control']['flag']:
-            if self.modeling['Analysis_Flags']['OpenFAST'] != True:
+            if self.modeling['Level3']['flag'] != True:
                 exit('Please turn on the call to OpenFAST if you are trying to optimize trailing edge flaps.')
             wt_opt.model.add_constraint('sse_tune.tune_rosco.Flp_Kp',
                 lower = control_constraints['flap_control']['min'],
@@ -360,7 +358,7 @@ class PoseOptimization(object):
                 lower = control_constraints['flap_control']['min'],
                 upper = control_constraints['flap_control']['max'])    
         if control_constraints['rotor_overspeed']['flag']:
-            if self.modeling['Analysis_Flags']['OpenFAST'] != True:
+            if self.modeling['Level3']['flag'] != True:
                 exit('Please turn on the call to OpenFAST if you are trying to optimize rotor overspeed constraints.')
             wt_opt.model.add_constraint('aeroelastic.rotor_overspeed',
                 lower = control_constraints['rotor_overspeed']['min'],
@@ -407,8 +405,8 @@ class PoseOptimization(object):
         wt_opt['blade.opt_var.s_opt_chord']  = np.linspace(0., 1., self.blade_opt['aero_shape']['chord']['n_opt'])
         wt_opt['blade.ps.s_opt_spar_cap_ss'] = np.linspace(0., 1., self.blade_opt['structure']['spar_cap_ss']['n_opt'])
         wt_opt['blade.ps.s_opt_spar_cap_ps'] = np.linspace(0., 1., self.blade_opt['structure']['spar_cap_ps']['n_opt'])
-        wt_opt['rlds.constr.max_strainU_spar'] = blade_constraints['strains_spar_cap_ss']['max']
-        wt_opt['rlds.constr.max_strainL_spar'] = blade_constraints['strains_spar_cap_ps']['max']
+        wt_opt['rs.constr.max_strainU_spar'] = blade_constraints['strains_spar_cap_ss']['max']
+        wt_opt['rs.constr.max_strainL_spar'] = blade_constraints['strains_spar_cap_ps']['max']
         wt_opt['stall_check.stall_margin'] = blade_constraints['stall']['margin'] * 180. / np.pi
         
         return wt_opt
