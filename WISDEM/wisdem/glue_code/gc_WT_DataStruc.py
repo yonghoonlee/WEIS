@@ -300,6 +300,7 @@ class WindTurbineOntologyOpenMDAO(om.Group):
             else:
                 # If using simple (regression) generator scaling, this is an optional input to override default values
                 n_pc = modeling_options["RotorSE"]["n_pc"]
+                generator_ivc.add_output("generator_radius_user", val=0.0, units="m")
                 generator_ivc.add_output("generator_mass_user", val=0.0, units="kg")
                 generator_ivc.add_output("generator_efficiency_user", val=np.zeros((n_pc, 2)))
 
@@ -2441,15 +2442,9 @@ class WT_Assembly(om.ExplicitComponent):
         if modeling_options["flags"]["tower"]:
             if inputs["hub_height_user"] != 0.0:
                 outputs["hub_height"] = inputs["hub_height_user"]
-                outputs["tower_ref_axis"][:, 2] = (
-                    inputs["tower_ref_axis_user"][:, 2] - inputs["tower_ref_axis_user"][0, 2]
-                ) * inputs["hub_height_user"] / (
-                    inputs["tower_ref_axis_user"][-1, 2] + inputs["distance_tt_hub"]
-                ) + inputs[
-                    "tower_ref_axis_user"
-                ][
-                    0, 2
-                ]
+                outputs["tower_ref_axis"][:, 2] = (inputs["tower_ref_axis_user"][:, 2] - inputs["tower_ref_axis_user"][0, 2]
+                 + inputs["distance_tt_hub"]) * inputs["hub_height_user"] / (inputs["tower_ref_axis_user"][-1, 2]
+                 + inputs["distance_tt_hub"]) + inputs["tower_ref_axis_user"][0, 2] - inputs["distance_tt_hub"]
             else:
                 outputs["hub_height"] = inputs["tower_ref_axis_user"][-1, 2] + inputs["distance_tt_hub"]
                 outputs["tower_ref_axis"] = inputs["tower_ref_axis_user"]
