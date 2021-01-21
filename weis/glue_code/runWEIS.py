@@ -3,7 +3,7 @@ import os, sys, time
 import openmdao.api as om
 from weis.glue_code.gc_LoadInputs     import WindTurbineOntologyPythonWEIS
 from wisdem.glue_code.gc_WT_InitModel import yaml2openmdao
-from weis.glue_code.gc_PoseOptimization  import PoseOptimization
+from weis.glue_code.gc_PoseOptimization  import PoseOptimizationWEIS
 from weis.glue_code.glue_code         import WindPark
 from wisdem.commonse.mpi_tools        import MPI
 from wisdem.commonse                  import fileIO
@@ -19,16 +19,13 @@ def run_weis(fname_wt_input, fname_modeling_options, fname_opt_options, overridd
 
     # Initialize openmdao problem. If running with multiple processors in MPI, use parallel finite differencing equal to the number of cores used.
     # Otherwise, initialize the WindPark system normally. Get the rank number for parallelization. We only print output files using the root processor.
-    myopt = PoseOptimization(modeling_options, opt_options)
+    myopt = PoseOptimizationWEIS(modeling_options, opt_options)
 
     if MPI:
         n_DV = myopt.get_number_design_variables()
         
         # Extract the number of cores available
         max_cores = MPI.COMM_WORLD.Get_size()
-
-        if max_cores / 2. != np.round(max_cores / 2.):
-            exit('ERROR: the parallelization logic only works for an even number of cores available')
 
         # Define the color map for the parallelization, determining the maximum number of parallel finite difference (FD) evaluations based on the number of design variables (DV). OpenFAST on/off changes things.
         if modeling_options['Level3']['flag']:
