@@ -148,13 +148,13 @@ class FASTmodel(LinearFAST):
         deckname = ''
         value = None
     
-    def prepare_case_inputs(self, SolutionStage, plantdesign_list):
+    def prepare_case_inputs(self, SolutionStage, plantdesign_list, fid):
         if SolutionStage == self.SOL_FLG_STEADY:
             self.FAST_runDirectory = self.FAST_steadyDirectory
-            namebase = self.casename+'_steady'
+            namebase = self.casename+'_'+fid+'_steady'
         elif SolutionStage == self.SOL_FLG_LINEAR:
             self.FAST_runDirectory = self.FAST_linearDirectory
-            namebase = self.casename+'_linear'
+            namebase = self.casename+'_'+fid+'_linear'
             
         case_inputs = {}
         if SolutionStage == self.SOL_FLG_STEADY:
@@ -315,7 +315,7 @@ def set_IEA_UMaine(mdl):
     # OpenFAST case
     mdl.FAST_ver = 'OpenFAST'
     
-    FAST_dir = 'examples/OpenFAST_models/IEA-15-240-RWT/IEA-15-240-RWT-UMaineSemi'
+    FAST_dir = 'examples/01_aeroelasticse/OpenFAST_models/IEA-15-240-RWT/IEA-15-240-RWT-UMaineSemi'
     FAST_fst = 'IEA-15-240-RWT-UMaineSemi.fst'
     mdl.FAST_directory = os.path.join(mdl.WEIS_root, FAST_dir)
     mdl.FAST_InputFile = FAST_fst
@@ -372,47 +372,49 @@ def set_IEA_UMaine(mdl):
 
 if __name__ == '__main__':
     
-    mdl = FASTmodel()
-    mdl = set_IEA_UMaine(mdl)
-    mdl.casename = 'pd'
-    mdl.parallel = True
-    mdl.debug_level = 2
+    for pf in np.linspace(0.7, 1.3, 7):
+
+        mdl = FASTmodel()
+        mdl = set_IEA_UMaine(mdl)
+        mdl.casename = 'pd'
+        mdl.parallel = True
+        mdl.debug_level = 2
     
-    # Prepare plant design
-    plantdesign_list = []
-    PtfmFactor = 1.0
-    
-    pd = mdl.plant_design()
-    pd.modulename = 'ElastoDyn'
-    pd.deckname = 'PtfmMass'
-    pd.value = 1.7838E+07*PtfmFactor # mass
-    plantdesign_list.append(pd)
-    
-    pd = mdl.plant_design()
-    pd.modulename = 'ElastoDyn'
-    pd.deckname = 'PtfmRIner'
-    pd.value = 1.2507E+10*PtfmFactor # Ixx = mr^2
-    plantdesign_list.append(pd)
-    
-    pd = mdl.plant_design()
-    pd.modulename = 'ElastoDyn'
-    pd.deckname = 'PtfmPIner'
-    pd.value = 1.2507E+10*PtfmFactor # Iyy = mr^2
-    plantdesign_list.append(pd)
-    
-    pd = mdl.plant_design()
-    pd.modulename = 'ElastoDyn'
-    pd.deckname = 'PtfmYIner'
-    pd.value = 2.3667E+10*PtfmFactor # Izz = mr^2
-    plantdesign_list.append(pd)
-    
-    # Steady state solution
-    mdl.prepare_case_inputs(mdl.SOL_FLG_STEADY, plantdesign_list)
-    mdl.runFAST_steady()
-    
-    # Linearization
-    mdl.prepare_case_inputs(mdl.SOL_FLG_LINEAR, plantdesign_list)
-    mdl.runFAST_linear()
-    
-    
-    
+        # Prepare plant design
+        plantdesign_list = []
+        PtfmFactor = pf
+        
+        pd = mdl.plant_design()
+        pd.modulename = 'ElastoDyn'
+        pd.deckname = 'PtfmMass'
+        pd.value = 1.7838E+07*PtfmFactor # mass
+        plantdesign_list.append(pd)
+        
+        pd = mdl.plant_design()
+        pd.modulename = 'ElastoDyn'
+        pd.deckname = 'PtfmRIner'
+        pd.value = 1.2507E+10*PtfmFactor # Ixx = mr^2
+        plantdesign_list.append(pd)
+        
+        pd = mdl.plant_design()
+        pd.modulename = 'ElastoDyn'
+        pd.deckname = 'PtfmPIner'
+        pd.value = 1.2507E+10*PtfmFactor # Iyy = mr^2
+        plantdesign_list.append(pd)
+        
+        pd = mdl.plant_design()
+        pd.modulename = 'ElastoDyn'
+        pd.deckname = 'PtfmYIner'
+        pd.value = 2.3667E+10*PtfmFactor # Izz = mr^2
+        plantdesign_list.append(pd)
+        
+        # Steady state solution
+        mdl.prepare_case_inputs(mdl.SOL_FLG_STEADY, plantdesign_list, str('PtfmMass%+09.2e' % PtfmFactor))
+        mdl.runFAST_steady()
+        
+        # Linearization
+        mdl.prepare_case_inputs(mdl.SOL_FLG_LINEAR, plantdesign_list)
+        mdl.runFAST_linear()
+        
+        
+        
