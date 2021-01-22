@@ -13,6 +13,7 @@ class FASTmodel(LinearFAST):
     
     SOL_FLG_LINEAR = 1
     SOL_FLG_STEADY = 2
+    SOL_FLG_NONLINEAR_AT_LIN_COND = 3
     
     def __init__(self, **kwargs):
         self.casename = ''
@@ -20,6 +21,7 @@ class FASTmodel(LinearFAST):
         self.WEIS_root = os.path.dirname(os.path.dirname(os.path.abspath(weis.__file__)))
         self.FAST_steadyDirectory = None
         self.FAST_linearDirectory = None
+        self.FAST_nonlinearLinCondDirectory = None
         self.path2dll = None
         self.case_inputs = {}
         self.DT = 0.025
@@ -58,6 +60,7 @@ class FASTmodel(LinearFAST):
         if self.parallel:
             self.run_multi(self.cores)
         else:
+            pass # SKIP COMPUTING STEADY SOLUTION FOR DEBUG PURPOSE
             self.run_serial()
             
         # Output files
@@ -91,7 +94,7 @@ class FASTmodel(LinearFAST):
         
         # Load and save statistics and load rankings
         stats, _ = fp.batch_processing()
-        if hasattr(stats, '__len__'):
+        if hasattr(stats, '__len__') and type(stats) == list:
             stats = stats[0]
             
         windSortInd = np.argsort(stats['Wind1VelX']['mean'])
@@ -120,6 +123,13 @@ class FASTmodel(LinearFAST):
     
     def runFAST_linear(self):
         # Linearization
+        if self.parallel:
+            self.run_multi(self.cores)
+        else:
+            self.run_serial()
+
+    def runFAST_nonlinear_lin_cond(self):
+        # Nonlinear simulation
         if self.parallel:
             self.run_multi(self.cores)
         else:
@@ -155,11 +165,14 @@ class FASTmodel(LinearFAST):
         elif SolutionStage == self.SOL_FLG_LINEAR:
             self.FAST_runDirectory = self.FAST_linearDirectory
             namebase = self.casename+'_'+fid+'_linear'
+        elif SolutionStage == self.SOL_FLG_NONLINEAR_AT_LIN_COND:
+            self.FAST_runDirectory = self.FAST_nonlinearLinCondDirectory
+            namebase = self.casename+'_'+fid+'_nonlinear_lin_cond'
             
         case_inputs = {}
         if SolutionStage == self.SOL_FLG_STEADY:
             case_inputs[("Fst","TMax")]             = {'vals':[self.TMax], 'group':0}
-        elif SolutionStage == self.SOL_FLG_LINEAR:
+        elif SolutionStage in [self.SOL_FLG_LINEAR, self.SOL_FLG_NONLINEAR_AT_LIN_COND]: # HERE
             case_inputs[("Fst","TMax")]             = {'vals':[4.0*self.TMax], 'group':0}
         case_inputs[("Fst","DT")]                   = {'vals':[self.DT], 'group':0}
         case_inputs[("Fst","OutFileFmt")]           = {'vals':[self.OutFileFmt], 'group':0} # 1=Text, 2=Binary, 3=Both
@@ -325,11 +338,14 @@ def set_IEA_UMaine(mdl):
         case_dir, 'output', os.path.splitext(FAST_fst)[0], 'steady')
     mdl.FAST_linearDirectory = os.path.join(
         case_dir, 'output', os.path.splitext(FAST_fst)[0], 'linear')
+    mdl.FAST_nonlinearLinCondDirectory = os.path.join(
+        case_dir, 'output', os.path.splitext(FAST_fst)[0], 'nonlinear_lin_cond')
     os.makedirs(mdl.FAST_steadyDirectory, exist_ok=True)
     os.makedirs(mdl.FAST_linearDirectory, exist_ok=True)
+    os.makedirs(mdl.FAST_nonlinearLinCondDirectory, exist_ok=True)
     
     mdl.CompMooring = 0 # 0=None, 1=MAP++, 2=FEAMooring, 3=MoorDyn, 4=OrcaFlex
-    mdl.DOFs = ['GenDOF','TwFADOF1','PtfmPDOF']
+    mdl.DOFs = ['GenDOF','TwFADOF1','PtfmPDOF','FlapDOF1']
     mdl.set_GBRatio() # Obtain and set gear box ratio
     mdl.HydroStates = True
     mdl.NLinTimes = 12
@@ -372,12 +388,14 @@ def set_IEA_UMaine(mdl):
 
 if __name__ == '__main__':
     
-    for pf in np.linspace(0.7, 1.3, 7):
+    # PLANT PARAMETERS MODIFIED FOR DEBUG PURPOSE
+    for pf in [0.7]:
+    #for pf in np.linspace(0.7, 1.3, 7):
 
         mdl = FASTmodel()
         mdl = set_IEA_UMaine(mdl)
         mdl.casename = 'pd'
-        mdl.parallel = True
+        mdl.parallel = False
         mdl.debug_level = 2
     
         # Prepare plant design
@@ -407,14 +425,21 @@ if __name__ == '__main__':
         pd.deckname = 'PtfmYIner'
         pd.value = 2.3667E+10*PtfmFactor # Izz = mr^2
         plantdesign_list.append(pd)
+
+        caseid = str('PtfmMass%+09.2e' % PtfmFactor)
+
+        # WIND SPEED MODIFIED FOR DEBUG PURPOSE
+        mdl.WindSpeeds = np.linspace(7,11,3)
         
         # Steady state solution
-        mdl.prepare_case_inputs(mdl.SOL_FLG_STEADY, plantdesign_list, str('PtfmMass%+09.2e' % PtfmFactor))
+        mdl.prepare_case_inputs(mdl.SOL_FLG_STEADY, plantdesign_list, caseid)
         mdl.runFAST_steady()
         
         # Linearization
-        mdl.prepare_case_inputs(mdl.SOL_FLG_LINEAR, plantdesign_list)
+        mdl.prepare_case_inputs(mdl.SOL_FLG_LINEAR, plantdesign_list, caseid)
         mdl.runFAST_linear()
         
-        
-        
+        # Nonlinear OpenFAST simulation using linearization conditions
+        mdl.prepare_case_inputs(mdl.SOL_FLG_NONLINEAR_AT_LIN_COND, plantdesign_list, caseid)
+        mdl.runFAST_nonlinear_lin_cond()
+
