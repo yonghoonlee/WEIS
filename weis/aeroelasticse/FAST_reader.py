@@ -1006,6 +1006,8 @@ class InputReader_OpenFAST(InputReader_Common):
             self.fst_vt['AeroDynTower']['TwrRe'][i]  = data[0]
             self.fst_vt['AeroDynTower']['TwrCD'][i,:]  = data[1:]
 
+        f.close()
+                
     def read_AeroDyn15(self):
         # AeroDyn v15.03
 
@@ -1021,7 +1023,7 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['AeroDyn15']['WakeMod']       = int(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['AFAeroMod']     = int(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['TwrPotent']     = int(f.readline().split()[0])
-        self.fst_vt['AeroDyn15']['TwrShadow']     = bool_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['TwrShadow']     = int(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['TwrAero']       = bool_read(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['FrozenWake']    = bool_read(f.readline().split()[0])
         if self.FAST_ver.lower() != 'fast8':
@@ -1095,11 +1097,13 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['AeroDyn15']['TwrElev']        = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
         self.fst_vt['AeroDyn15']['TwrDiam']        = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
         self.fst_vt['AeroDyn15']['TwrCd']          = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
+        self.fst_vt['AeroDyn15']['TwrTI']          = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
         for i in range(self.fst_vt['AeroDyn15']['NumTwrNds']):
             data = [float(val) for val in f.readline().split()]
             self.fst_vt['AeroDyn15']['TwrElev'][i] = data[0] 
             self.fst_vt['AeroDyn15']['TwrDiam'][i] = data[1] 
             self.fst_vt['AeroDyn15']['TwrCd'][i]   = data[2]
+            self.fst_vt['AeroDyn15']['TwrTI'][i]   = data[3]
 
         # Outputs
         f.readline()
@@ -2077,6 +2081,10 @@ class InputReader_OpenFAST(InputReader_Common):
             channel_list = channels[1].split(',')
             self.set_outlist(self.fst_vt['outlist']['SubDyn'], channel_list)
             data = f.readline()
+            
+        f.close()
+
+        f.close()
 
     def read_MAP(self):
         # MAP++
@@ -2129,6 +2137,7 @@ class InputReader_OpenFAST(InputReader_Common):
         f.readline()
         f.readline()
         self.fst_vt['MAP']['Option']   = [str(val) for val in f.readline().strip().split()]
+        f.close()
 
     def read_MoorDyn(self):
 
@@ -2236,6 +2245,7 @@ class InputReader_OpenFAST(InputReader_Common):
             self.set_outlist(self.fst_vt['outlist']['MoorDyn'], channel_list)
             data = f.readline()
 
+        f.close()
 
 class InputReader_FAST7(InputReader_Common):
     """ FASTv7.02 input file reader """
@@ -2463,6 +2473,7 @@ class InputReader_FAST7(InputReader_Common):
             channel_list = channels[1].split(',')
             self.set_outlist(self.fst_vt['outlist7'], channel_list)
             data = f.readline()
+        f.close()
 
     def read_AeroDyn_FAST7(self):
 
