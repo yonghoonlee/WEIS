@@ -55,86 +55,13 @@ class FASTmodel(LinearFAST):
         
         self.set_DLLpath() # Obtain platform and set controller DLL path
         
-    def runFAST_steady(self):
-        # Steady state computation
-        if self.parallel:
-            self.run_multi(self.cores)
-        else:
-            pass # SKIP COMPUTING STEADY SOLUTION FOR DEBUG PURPOSE
-            self.run_serial()
-            
-        # Output files
-        outfiles = []
-        for cname in self.case_name_list:
-            if os.path.isfile(self.FAST_runDirectory + os.sep + cname + '.outb'):
-                outfiles.append(self.FAST_runDirectory + os.sep + cname + '.outb')
-            elif os.path.isfile(self.FAST_runDirectory + os.sep + cname + '.out'):
-                outfiles.append(self.FAST_runDirectory + os.sep + cname + '.out')
-            else:
-                # outfiles.append(FileNotFoundError)
-                print('FILE NOT FOUND: ' + self.FAST_runDirectory + os.sep + cname + '.outb')
-        self.outfiles = outfiles
-        
-        # Post processing steady state results
-        self.postFAST_steady()
-    
-    def postFAST_steady(self):
-        fp = Processing.FAST_Processing()
-        fp.OpenFAST_outfile_list = self.outfiles
-        fp.t0 = self.TMax - min(max(min(self.TMax/4.0, 400.0), 200.0), self.TMax)
-        fp.parallel_analysis = self.parallel
-        fp.parallel_cores = self.cores
-        fp.results_dir = os.path.join(self.FAST_runDirectory, 'stats')
-        if self.debug_level == 0:
-            fp.verbose = False
-        else:
-            fp.verbose = True
-        fp.save_LoadRanking = True
-        fp.save_SummaryStats = True
-        
-        # Load and save statistics and load rankings
-        stats, _ = fp.batch_processing()
-        if hasattr(stats, '__len__') and type(stats) == list:
-            stats = stats[0]
-            
-        windSortInd = np.argsort(stats['Wind1VelX']['mean'])
-        ssChannels = [['Wind1VelX', 'Wind1VelX'],  
-                      ['OoPDefl1',  'OoPDefl'],
-                      ['IPDefl1',   'IPDefl'],
-                      ['BldPitch1', 'BlPitch1'],
-                      ['RotSpeed',  'RotSpeed'],
-                      ['TTDspFA',   'TTDspFA'],
-                      ['TTDspSS',   'TTDspSS'],
-                      ['PtfmSurge', 'PtfmSurge'],
-                      ['PtfmSway',  'PtfmSway'],
-                      ['PtfmHeave', 'PtfmHeave'],
-                      ['PtfmRoll',  'PtfmRoll'],
-                      ['PtfmYaw',   'PtfmYaw'],
-                      ['PtfmPitch', 'PtfmPitch']]
-        ssChanData = {}
-        for iChan in ssChannels:
-            try:
-                ssChanData[iChan[1]] = np.array(stats[iChan[0]]['mean'])[windSortInd].tolist()
-            except:
-                print('Warning: ' + iChan[0] + ' is is not in OutList')
-        
-        save_yaml(self.FAST_runDirectory, self.casename + '_steady_ops.yaml', ssChanData)
-        
-    
-    def runFAST_linear(self):
+    def runFAST(self):
         # Linearization
         if self.parallel:
             self.run_multi(self.cores)
         else:
             self.run_serial()
 
-    def runFAST_nonlinear_lin_cond(self):
-        # Nonlinear simulation
-        if self.parallel:
-            self.run_multi(self.cores)
-        else:
-            self.run_serial()
-    
     def run_mpi(*args, **kwargs):
         print('run_mpi method will not be executed.')
         
@@ -287,9 +214,6 @@ class FASTmodel(LinearFAST):
                     "TipRDxr",   "TipRDyr",   "TipRDzr"]:
             channels[var] = True
 
-        # Temporary treatment
-        case_inputs[("AeroDyn15","TwrShadow")] = {'vals':[0], 'group':0}
-        
         # Case generation
         case_list, case_name_list = CaseGen_General(
             case_inputs, dir_matrix=self.FAST_runDirectory, namebase=namebase
@@ -387,9 +311,9 @@ if __name__ == '__main__':
         mdl.parallel = False
         mdl.debug_level = 2
 
-        # The following line can be removed once WEIS-packaged OpenFAST is updated to reflect
-        # recent hotfix for the linearization segmentation fault error.
-        mdl.FAST_exe = '/Users/yonghoonlee/Dropbox/ATLANTIS_WEIS/openfast/install/bin/openfast'
+        ## The following line can be removed once WEIS-packaged OpenFAST is updated to reflect
+        ## recent hotfix for the linearization segmentation fault error.
+        #mdl.FAST_exe = '/Users/yonghoonlee/Dropbox/ATLANTIS_WEIS/WEIS-old/local/bin/openfast'
 
         # DOFs
         mdl.DOFs = ['GenDOF','TwFADOF1','PtfmPDOF']
@@ -426,8 +350,8 @@ if __name__ == '__main__':
 
         # Linearization
         mdl.prepare_case_inputs(mdl.SOL_FLG_LINEAR, plantdesign_list, caseid)
-        mdl.runFAST_linear()
+        mdl.runFAST()
         
         ## Nonlinear OpenFAST simulation using linearization conditions
         #mdl.prepare_case_inputs(mdl.SOL_FLG_NONLINEAR_AT_LIN_COND, plantdesign_list, caseid)
-        #mdl.runFAST_nonlinear_lin_cond()
+        #mdl.runFAST()
