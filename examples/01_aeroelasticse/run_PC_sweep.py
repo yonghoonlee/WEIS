@@ -9,7 +9,6 @@ from weis.aeroelasticse.CaseGen_IEC         import CaseGen_IEC
 from wisdem.commonse.mpi_tools              import MPI
 import sys, os, platform, yaml
 import numpy as np
-from pCrunch.CaseGen_Control import append_case_matrix_yaml
 
 # ROSCO 
 from ROSCO_toolbox import controller as ROSCO_controller
@@ -127,7 +126,7 @@ def run_PC_sweep(omega,zeta=1.0):
     case_inputs[("ServoDyn","DLL_FileName")] = {'vals':[path2dll], 'group':0}
     case_inputs[("AeroDyn15","TwrAero")]     = {'vals':["True"], 'group':0}
     case_inputs[("AeroDyn15","TwrPotent")]   = {'vals':[1], 'group':0}
-    case_inputs[("AeroDyn15","TwrShadow")]   = {'vals':["True"], 'group':0}
+    case_inputs[("AeroDyn15","TwrShadow")]   = {'vals':[1], 'group':0}
     case_inputs[("HydroDyn","WaveMod")]      = {'vals':[2], 'group':0}
     case_inputs[("HydroDyn","WvDiffQTF")]    = {'vals':["False"], 'group':0}
     channels = {}

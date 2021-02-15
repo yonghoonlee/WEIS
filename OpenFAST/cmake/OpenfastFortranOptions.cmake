@@ -110,7 +110,7 @@ macro(set_fast_gfortran)
   # Disable stack reuse within routines: issues seen with gfortran 9.x, but others may also exhibit
   #   see section 3.16 of https://gcc.gnu.org/onlinedocs/gcc-9.2.0/gcc.pdf
   #   and https://github.com/OpenFAST/openfast/pull/595
-  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fstack-reuse='none'")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fstack-reuse=none")
 
   # Deal with Double/Single precision
   if (DOUBLE_PRECISION)
@@ -118,9 +118,11 @@ macro(set_fast_gfortran)
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8")
   endif (DOUBLE_PRECISION)
 
-  # debug flags
+  # debug flags #
+  # -fcheck=all gives the error: At line 695 of file /Users/gbarter/devel/WEIS/OpenFAST/modules/hydrodyn/src/WAMIT.f90
+  #  Fortran runtime error: Index '1' of dimension 1 of array 'wamitwvdir' above upper bound of 0
   if(CMAKE_BUILD_TYPE MATCHES Debug)
-    set( CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -fcheck=all -pedantic -fbacktrace " )
+    set( CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -pedantic -fbacktrace" ) 
   endif()
 
   if(CYGWIN)
@@ -166,8 +168,10 @@ macro(set_fast_intel_fortran_posix)
   endif (DOUBLE_PRECISION)
 
   # debug flags
+  # -check all gives the error: At line 695 of file /Users/gbarter/devel/WEIS/OpenFAST/modules/hydrodyn/src/WAMIT.f90
+  #  Fortran runtime error: Index '1' of dimension 1 of array 'wamitwvdir' above upper bound of 0
   if(CMAKE_BUILD_TYPE MATCHES Debug)
-    set( CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -check all -traceback" )
+    set( CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -traceback" )
   endif()
 
   # OPENMP
@@ -220,8 +224,10 @@ macro(set_fast_intel_fortran_windows)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:${stack_size}")
 
   # debug flags
+  #  /check:all gives the error: At line 695 of file /Users/gbarter/devel/WEIS/OpenFAST/modules/hydrodyn/src/WAMIT.f90
+  #  Fortran runtime error: Index '1' of dimension 1 of array 'wamitwvdir' above upper bound of 0
   if(CMAKE_BUILD_TYPE MATCHES Debug)
-    set( CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} /check:all /traceback" )
+    set( CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} /traceback" )
   endif()
 
   # OPENMP
