@@ -7,7 +7,6 @@ __email__ = "Jake.Nunemaker@nrel.gov"
 
 
 import numpy as np
-
 from wisdem.orbit.phases.design import DesignPhase
 
 
@@ -31,7 +30,6 @@ class OffshoreSubstationDesign(DesignPhase):
             "oss_substructure_cost_rate": "USD/t (optional)",
             "oss_pile_cost_rate": "USD/t (optional)",
             "num_substations": "int (optional)",
-            "design_time": "h (optional)",
         },
     }
 
@@ -69,21 +67,44 @@ class OffshoreSubstationDesign(DesignPhase):
         self.calc_ancillary_system_cost()
         self.calc_assembly_cost()
         self.calc_substructure_mass_and_cost()
-        self.calc_substation_cost()
 
         self._outputs["offshore_substation_substructure"] = {
             "type": "Monopile",  # Substation install only supports monopiles
             "deck_space": self.substructure_deck_space,
             "mass": self.substructure_mass,
             "length": self.substructure_length,
+            "unit_cost": self.substructure_cost,
         }
 
         self._outputs["offshore_substation_topside"] = {
             "deck_space": self.topside_deck_space,
             "mass": self.topside_mass,
+            "unit_cost": self.substation_cost,
         }
 
         self._outputs["num_substations"] = self.num_substations
+
+    @property
+    def substation_cost(self):
+        """Returns total procuremet cost of the topside."""
+
+        return (
+            self.mpt_cost
+            + self.topside_cost
+            + self.shunt_reactor_cost
+            + self.switchgear_costs
+            + self.ancillary_system_costs
+            + self.land_assembly_cost
+        )
+
+    @property
+    def total_cost(self):
+        """Returns total procurement cost of the substation(s)."""
+
+        if not self._outputs:
+            raise Exception("Has OffshoreSubstationDesign been ran yet?")
+
+        return (self.substructure_cost + self.substation_cost) * self.num_substations
 
     def calc_substructure_length(self):
         """
@@ -126,18 +147,9 @@ class OffshoreSubstationDesign(DesignPhase):
         num_turbines = self.config["plant"]["num_turbines"]
         turbine_rating = self.config["turbine"]["turbine_rating"]
 
-        self.num_mpt = np.ceil(
-            num_turbines * turbine_rating / (250 * self.num_substations)
-        )
+        self.num_mpt = np.ceil(num_turbines * turbine_rating / (250 * self.num_substations))
         self.mpt_rating = (
-            round(
-                (
-                    (num_turbines * turbine_rating * 1.15)
-                    / (self.num_mpt * self.num_substations)
-                )
-                / 10.0
-            )
-            * 10.0
+            round(((num_turbines * turbine_rating * 1.15) / (self.num_mpt * self.num_substations)) / 10.0) * 10.0
         )
 
     def calc_mpt_cost(self):
@@ -169,9 +181,7 @@ class OffshoreSubstationDesign(DesignPhase):
         topside_design_cost = _design.get("topside_design_cost", 4.5e6)
 
         self.topside_mass = 3.85 * self.mpt_rating * self.num_mpt + 285
-        self.topside_cost = (
-            self.topside_mass * topside_fab_cost_rate + topside_design_cost
-        )
+        self.topside_cost = self.topside_mass * topside_fab_cost_rate + topside_design_cost
 
     def calc_shunt_reactor_cost(self):
         """
@@ -185,9 +195,7 @@ class OffshoreSubstationDesign(DesignPhase):
         _design = self.config.get("substation_design", {})
         shunt_cost_rate = _design.get("shunt_cost_rate", 35000)
 
-        self.shunt_reactor_cost = (
-            self.mpt_rating * self.num_mpt * shunt_cost_rate * 0.5
-        )
+        self.shunt_reactor_cost = self.mpt_rating * self.num_mpt * shunt_cost_rate * 0.5
 
     def calc_switchgear_cost(self):
         """
@@ -219,9 +227,7 @@ class OffshoreSubstationDesign(DesignPhase):
         workspace_cost = _design.get("workspace_cost", 2e6)
         other_ancillary_cost = _design.get("other_ancillary_cost", 3e6)
 
-        self.ancillary_system_costs = (
-            backup_gen_cost + workspace_cost + other_ancillary_cost
-        )
+        self.ancillary_system_costs = backup_gen_cost + workspace_cost + other_ancillary_cost
 
     def calc_assembly_cost(self):
         """
@@ -235,9 +241,7 @@ class OffshoreSubstationDesign(DesignPhase):
         _design = self.config.get("substation_design", {})
         topside_assembly_factor = _design.get("topside_assembly_factor", 0.075)
         self.land_assembly_cost = (
-            self.switchgear_costs
-            + self.shunt_reactor_cost
-            + self.ancillary_system_costs
+            self.switchgear_costs + self.shunt_reactor_cost + self.ancillary_system_costs
         ) * topside_assembly_factor
 
     def calc_substructure_mass_and_cost(self):
@@ -251,40 +255,16 @@ class OffshoreSubstationDesign(DesignPhase):
         """
 
         _design = self.config.get("substation_design", {})
-        oss_substructure_cost_rate = _design.get(
-            "oss_substructure_cost_rate", 3000
-        )
+        oss_substructure_cost_rate = _design.get("oss_substructure_cost_rate", 3000)
         oss_pile_cost_rate = _design.get("oss_pile_cost_rate", 0)
 
         substructure_mass = 0.4 * self.topside_mass
         substructure_pile_mass = 8 * substructure_mass ** 0.5574
         self.substructure_cost = (
-            substructure_mass * oss_substructure_cost_rate
-            + substructure_pile_mass * oss_pile_cost_rate
+            substructure_mass * oss_substructure_cost_rate + substructure_pile_mass * oss_pile_cost_rate
         )
 
         self.substructure_mass = substructure_mass + substructure_pile_mass
-
-    def calc_substation_cost(self):
-        """
-        Calculates the total cost of the substation solution, based on the
-        number of configured substations.
-        """
-
-        self.substation_cost = (
-            sum(
-                [
-                    self.mpt_cost,
-                    self.topside_cost,
-                    self.shunt_reactor_cost,
-                    self.switchgear_costs,
-                    self.ancillary_system_costs,
-                    self.land_assembly_cost,
-                    self.substructure_cost,
-                ]
-            )
-            * self.num_substations
-        )
 
     @property
     def design_result(self):
@@ -296,23 +276,6 @@ class OffshoreSubstationDesign(DesignPhase):
             raise Exception("Has OffshoreSubstationDesign been ran yet?")
 
         return self._outputs
-
-    @property
-    def total_phase_cost(self):
-        """Returns total phase cost in $USD."""
-
-        if not self._outputs:
-            raise Exception("Has OffshoreSubstationDesign been ran yet?")
-
-        return self.substation_cost
-
-    @property
-    def total_phase_time(self):
-        """Returns total phase time in hours."""
-
-        _design = self.config.get("substation_design", {})
-        phase_time = _design.get("design_time", 0.0)
-        return phase_time
 
     @property
     def detailed_output(self):

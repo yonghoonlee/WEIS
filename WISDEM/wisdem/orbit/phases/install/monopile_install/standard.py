@@ -8,23 +8,12 @@ __email__ = "jake.nunemaker@nrel.gov"
 
 import simpy
 from marmot import process
-
 from wisdem.orbit.core import Vessel
-from wisdem.orbit.core.logic import (
-    shuttle_items_to_queue,
-    prep_for_site_operations,
-    get_list_of_items_from_port,
-)
+from wisdem.orbit.core.logic import shuttle_items_to_queue, prep_for_site_operations, get_list_of_items_from_port
 from wisdem.orbit.phases.install import InstallPhase
 from wisdem.orbit.core.exceptions import ItemNotFound
 
-from .common import (
-    Monopile,
-    TransitionPiece,
-    upend_monopile,
-    install_monopile,
-    install_transition_piece,
-)
+from .common import Monopile, TransitionPiece, upend_monopile, install_monopile, install_transition_piece
 
 
 class MonopileInstallation(InstallPhase):
@@ -56,8 +45,13 @@ class MonopileInstallation(InstallPhase):
             "diameter": "m",
             "deck_space": "m2",
             "mass": "t",
+            "unit_cost": "USD",
         },
-        "transition_piece": {"deck_space": "m2", "mass": "t"},
+        "transition_piece": {
+            "deck_space": "m2",
+            "mass": "t",
+            "unit_cost": "USD",
+        },
     }
 
     def __init__(self, config, weather=None, **kwargs):
@@ -77,12 +71,19 @@ class MonopileInstallation(InstallPhase):
 
         config = self.initialize_library(config, **kwargs)
         self.config = self.validate_config(config)
-        self.extract_defaults()
 
         self.initialize_port()
         self.initialize_wtiv()
         self.initialize_monopiles()
         self.setup_simulation(**kwargs)
+
+    @property
+    def system_capex(self):
+        """Returns procurement cost of the substructures."""
+
+        return (self.config["monopile"]["unit_cost"] + self.config["transition_piece"]["unit_cost"]) * self.config[
+            "plant"
+        ]["num_turbines"]
 
     def setup_simulation(self, **kwargs):
         """
@@ -252,17 +253,13 @@ def solo_install_monopiles(vessel, port, distance, monopiles, **kwargs):
         if vessel.at_port:
             try:
                 # Get substructure + transition piece from port
-                yield get_list_of_items_from_port(
-                    vessel, port, component_list, **kwargs
-                )
+                yield get_list_of_items_from_port(vessel, port, component_list, **kwargs)
 
             except ItemNotFound:
                 # If no items are at port and vessel.storage.items is empty,
                 # the job is done
                 if not vessel.storage.items:
-                    vessel.submit_debug_log(
-                        message="Item not found. Shutting down."
-                    )
+                    vessel.submit_debug_log(message="Item not found. Shutting down.")
                     break
 
             # Transit to site
@@ -275,22 +272,16 @@ def solo_install_monopiles(vessel, port, distance, monopiles, **kwargs):
 
             if vessel.storage.items:
                 # Prep for monopile install
-                yield prep_for_site_operations(
-                    vessel, survey_required=True, **kwargs
-                )
+                yield prep_for_site_operations(vessel, survey_required=True, **kwargs)
 
                 # Get monopile from internal storage
-                monopile = yield vessel.get_item_from_storage(
-                    "Monopile", **kwargs
-                )
+                monopile = yield vessel.get_item_from_storage("Monopile", **kwargs)
 
                 yield upend_monopile(vessel, monopile.length, **kwargs)
                 yield install_monopile(vessel, monopile, **kwargs)
 
                 # Get transition piece from internal storage
-                tp = yield vessel.get_item_from_storage(
-                    "TransitionPiece", **kwargs
-                )
+                tp = yield vessel.get_item_from_storage("TransitionPiece", **kwargs)
 
                 yield install_transition_piece(vessel, tp, **kwargs)
                 vessel.submit_debug_log(progress="Substructure")
@@ -338,14 +329,10 @@ def install_monopiles_from_queue(wtiv, queue, monopiles, distance, **kwargs):
             if queue.vessel:
 
                 # Prep for monopile install
-                yield prep_for_site_operations(
-                    wtiv, survey_required=True, **kwargs
-                )
+                yield prep_for_site_operations(wtiv, survey_required=True, **kwargs)
 
                 # Get monopile
-                monopile = yield wtiv.get_item_from_storage(
-                    "Monopile", vessel=queue.vessel, **kwargs
-                )
+                monopile = yield wtiv.get_item_from_storage("Monopile", vessel=queue.vessel, **kwargs)
 
                 yield upend_monopile(wtiv, monopile.length, **kwargs)
                 yield install_monopile(wtiv, monopile, **kwargs)

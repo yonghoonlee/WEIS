@@ -1,0 +1,40 @@
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - cmake
+  - control
+  - coveralls
+  - cython
+  - dill
+  - git
+  - jsonschema
+  - make
+  - matplotlib-base
+  - nlopt
+  - numpy
+  - openmdao
+  - openpyxl
+  - pandas
+  - pyside2
+  - pytest
+  - pytest-cov
+  - python
+  - pyyaml
+  - ruamel_yaml
+  - scipy
+  - setuptools
+  - smt
+  - sortedcontainers
+  - swig
+  - pip:
+    - simpy
+    - marmot-agents
+    - jsonmerge
+# Needs to be done outside of environment file:
+#  - m2w64-toolchain # [win]
+#  - libpython # [win]
+#  - compilers # [not win]
+#  - petsc4py # [not win]
+#  - mpi4py # [not win]

@@ -7,9 +7,9 @@ __email__ = "jake.nunemaker@nrel.gov"
 
 
 from marmot import process
-
 from wisdem.orbit.core import Cargo
-from wisdem.orbit.core._defaults import process_times as pt
+from wisdem.orbit.core.logic import stabilize, jackdown_if_required
+from wisdem.orbit.core.defaults import process_times as pt
 from wisdem.orbit.phases.install.monopile_install.common import (
     bolt_transition_piece,
     cure_transition_piece_grout,
@@ -72,9 +72,7 @@ def lift_topside(vessel, **kwargs):
     crane_rate = vessel.crane.crane_rate(**kwargs)
     lift_time = lift_height / crane_rate
 
-    yield vessel.task(
-        "Lift Topside", lift_time, constraints=vessel.operational_limits
-    )
+    yield vessel.task("Lift Topside", lift_time, constraints=vessel.operational_limits)
 
 
 @process
@@ -99,9 +97,7 @@ def attach_topside(vessel, **kwargs):
     key = "topside_attach_time"
     attach_time = kwargs.get(key, pt[key])
 
-    yield vessel.task(
-        "Attach Topside", attach_time, constraints=vessel.operational_limits
-    )
+    yield vessel.task("Attach Topside", attach_time, constraints=vessel.operational_limits)
 
 
 @process
@@ -124,9 +120,6 @@ def install_topside(vessel, topside, **kwargs):
 
     connection = kwargs.get("topside_connection_type", "bolted")
     reequip_time = vessel.crane.reequip(**kwargs)
-    site_depth = kwargs.get("site_depth", None)
-    extension = kwargs.get("extension", site_depth + 10)
-    jackdown_time = vessel.jacksys.jacking_time(extension, site_depth)
 
     yield vessel.task(
         "Crane Reequip",
@@ -137,20 +130,17 @@ def install_topside(vessel, topside, **kwargs):
     yield lift_topside(vessel)
     yield attach_topside(vessel)
 
-    if connection is "bolted":
+    if connection == "bolted":
         yield bolt_transition_piece(vessel, **kwargs)
 
-    elif connection is "grouted":
+    elif connection == "grouted":
 
         yield pump_transition_piece_grout(vessel, **kwargs)
         yield cure_transition_piece_grout(vessel, **kwargs)
 
     else:
         raise Exception(
-            f"Transition piece connection type '{connection}'"
-            "not recognized. Must be 'bolted' or 'grouted'."
+            f"Transition piece connection type '{connection}'" "not recognized. Must be 'bolted' or 'grouted'."
         )
 
-    yield vessel.task(
-        "Jackdown", jackdown_time, constraints=vessel.transit_limits, **kwargs
-    )
+    yield jackdown_if_required(vessel, **kwargs)

@@ -5,10 +5,9 @@ import os
 
 import pytest
 from marmot import Environment
-
 from wisdem.orbit.core import Vessel
+from wisdem.orbit.core.library import initialize_library, extract_library_specs
 from wisdem.test.test_orbit.data import test_weather
-from wisdem.orbit.library import initialize_library, extract_library_specs
 from wisdem.orbit.phases.install.cable_install import SimpleCable
 
 
@@ -45,18 +44,14 @@ def feeder():
 @pytest.fixture()
 def cable_vessel():
 
-    specs = extract_library_specs(
-        "array_cable_install_vessel", "test_cable_lay_vessel"
-    )
+    specs = extract_library_specs("array_cable_install_vessel", "test_cable_lay_vessel")
     return Vessel("Test Cable Vessel", specs)
 
 
 @pytest.fixture()
 def heavy_lift():
 
-    specs = extract_library_specs(
-        "oss_install_vessel", "test_heavy_lift_vessel"
-    )
+    specs = extract_library_specs("oss_install_vessel", "test_heavy_lift_vessel")
     return Vessel("Test Heavy Vessel", specs)
 
 

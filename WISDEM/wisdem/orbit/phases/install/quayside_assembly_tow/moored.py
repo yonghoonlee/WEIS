@@ -8,7 +8,6 @@ __email__ = "jake.nunemaker@nrel.gov"
 
 import simpy
 from marmot import le, process
-
 from wisdem.orbit.core import Vessel, WetStorage
 from wisdem.orbit.phases.install import InstallPhase
 
@@ -35,6 +34,7 @@ class MooredSubInstallation(InstallPhase):
         "substructure": {
             "takt_time": "int | float (optional, default: 0)",
             "towing_speed": "int | float (optional, default: 6 km/h)",
+            "unit_cost": "USD",
         },
         "site": {"depth": "m", "distance": "km"},
         "plant": {"num_turbines": "int"},
@@ -65,7 +65,6 @@ class MooredSubInstallation(InstallPhase):
 
         config = self.initialize_library(config, **kwargs)
         self.config = self.validate_config(config)
-        self.extract_defaults()
 
         self.setup_simulation(**kwargs)
 
@@ -85,6 +84,12 @@ class MooredSubInstallation(InstallPhase):
         self.initialize_queue()
         self.initialize_towing_groups()
         self.initialize_support_vessel()
+
+    @property
+    def system_capex(self):
+        """Returns total procurement cost of the substructures."""
+
+        return self.num_turbines * self.config["substructure"]["unit_cost"]
 
     def initialize_substructure_production(self):
         """
@@ -120,9 +125,7 @@ class MooredSubInstallation(InstallPhase):
 
         self.sub_assembly_lines = []
         for i in range(lines):
-            a = SubstructureAssemblyLine(
-                to_assemble, time, self.wet_storage, i + 1
-            )
+            a = SubstructureAssemblyLine(to_assemble, time, self.wet_storage, i + 1)
 
             self.env.register(a)
             a.start()
@@ -153,9 +156,7 @@ class MooredSubInstallation(InstallPhase):
         turbine = self.config["turbine"]
         self.turbine_assembly_lines = []
         for i in range(lines):
-            a = TurbineAssemblyLine(
-                self.wet_storage, self.assembly_storage, turbine, i + 1
-            )
+            a = TurbineAssemblyLine(self.wet_storage, self.assembly_storage, turbine, i + 1)
 
             self.env.register(a)
             a.start()
@@ -213,9 +214,7 @@ class MooredSubInstallation(InstallPhase):
         vessel.initialize(mobilize=False)
         self.support_vessel = vessel
 
-        station_keeping_vessels = self.config["towing_vessel_groups"][
-            "station_keeping_vessels"
-        ]
+        station_keeping_vessels = self.config["towing_vessel_groups"]["station_keeping_vessels"]
 
         install_moored_substructures(
             self.support_vessel,
@@ -232,21 +231,10 @@ class MooredSubInstallation(InstallPhase):
 
         return {
             "operational_delays": {
-                **{
-                    k: self.operational_delay(str(k))
-                    for k in self.sub_assembly_lines
-                },
-                **{
-                    k: self.operational_delay(str(k))
-                    for k in self.turbine_assembly_lines
-                },
-                **{
-                    k: self.operational_delay(str(k))
-                    for k in self.installation_groups
-                },
-                self.support_vessel: self.operational_delay(
-                    str(self.support_vessel)
-                ),
+                **{k: self.operational_delay(str(k)) for k in self.sub_assembly_lines},
+                **{k: self.operational_delay(str(k)) for k in self.turbine_assembly_lines},
+                **{k: self.operational_delay(str(k)) for k in self.installation_groups},
+                self.support_vessel: self.operational_delay(str(self.support_vessel)),
             }
         }
 
@@ -260,9 +248,7 @@ class MooredSubInstallation(InstallPhase):
 
 
 @process
-def transfer_moored_substructures_from_storage(
-    group, feed, distance, queue, towing_vessels, towing_speed, **kwargs
-):
+def transfer_moored_substructures_from_storage(group, feed, distance, queue, towing_vessels, towing_speed, **kwargs):
     """
     Process logic for the towing vessel group.
 
@@ -290,9 +276,7 @@ def transfer_moored_substructures_from_storage(
         delay = group.env.now - start
 
         if delay > 0:
-            group.submit_action_log(
-                "Delay: No Completed Assemblies Available", delay
-            )
+            group.submit_action_log("Delay: No Completed Assemblies Available", delay)
 
         yield group.group_task(
             "Ballast to Towing Draft",
@@ -329,15 +313,11 @@ def transfer_moored_substructures_from_storage(
             queue.vessel = None
             queue.activate = group.env.event()
 
-        yield group.group_task(
-            "Transit", transit_time, num_vessels=towing_vessels
-        )
+        yield group.group_task("Transit", transit_time, num_vessels=towing_vessels)
 
 
 @process
-def install_moored_substructures(
-    vessel, queue, distance, substructures, station_keeping_vessels, **kwargs
-):
+def install_moored_substructures(vessel, queue, distance, substructures, station_keeping_vessels, **kwargs):
     """
     Logic that a Multi-Purpose Support Vessel uses at site to complete the
     installation of moored substructures.

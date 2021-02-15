@@ -525,6 +525,7 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['Fst']['SubFile_path']      = os.path.split(self.fst_vt['Fst']['SubFile'])[0]
         self.fst_vt['Fst']['MooringFile_path']  = os.path.split(self.fst_vt['Fst']['MooringFile'])[0]
         self.fst_vt['Fst']['IceFile_path']      = os.path.split(self.fst_vt['Fst']['IceFile'])[0]
+
     def read_ElastoDyn(self):
         # ElastoDyn v1.03 Input File
         # Currently no differences between FASTv8.16 and OpenFAST.
@@ -784,7 +785,6 @@ class InputReader_OpenFAST(InputReader_Common):
 
         self.read_BeamDynBlade()
 
-
     def read_BeamDynBlade(self):
         # BeamDyn Blade
 
@@ -839,6 +839,7 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['InflowWind']['Echo']           = bool_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['WindType']       = int(f.readline().split()[0])
         self.fst_vt['InflowWind']['PropogationDir'] = float_read(f.readline().split()[0])
+        self.fst_vt['InflowWind']['VFlowAng']       = float_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['NWindVel']       = int(f.readline().split()[0])
         self.fst_vt['InflowWind']['WindVxiList']    = float_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['WindVyiList']    = float_read(f.readline().split()[0])
@@ -852,14 +853,13 @@ class InputReader_OpenFAST(InputReader_Common):
 
         # Parameters for Uniform wind file   [used only for WindType = 2] (uniform_wind_params)
         f.readline()
-        self.fst_vt['InflowWind']['Filename'] = os.path.join(os.path.split(inflow_file)[0], f.readline().split()[0][1:-1])
-        self.fst_vt['InflowWind']['RefHt'] = float_read(f.readline().split()[0])
+        self.fst_vt['InflowWind']['Filename_Uni'] = os.path.join(os.path.split(inflow_file)[0], f.readline().split()[0][1:-1])
+        self.fst_vt['InflowWind']['RefHt_Uni'] = float_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['RefLength'] = float_read(f.readline().split()[0])
 
         # Parameters for Binary TurbSim Full-Field files   [used only for WindType = 3] (turbsim_wind_params)
         f.readline()
-        self.fst_vt['InflowWind']['Filename'] = os.path.join(os.path.split(inflow_file)[0], f.readline().split()[0][1:-1])
-
+        self.fst_vt['InflowWind']['FileName_BTS'] = os.path.join(os.path.split(inflow_file)[0], f.readline().split()[0][1:-1])
         # Parameters for Binary Bladed-style Full-Field files   [used only for WindType = 4] (bladed_wind_params)
         f.readline()
         self.fst_vt['InflowWind']['FilenameRoot'] = f.readline().split()[0][1:-1]       
@@ -876,7 +876,7 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['InflowWind']['dx']    = float_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['dy']    = float_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['dz']    = float_read(f.readline().split()[0])
-        self.fst_vt['InflowWind']['RefHt'] = float_read(f.readline().split()[0])
+        self.fst_vt['InflowWind']['RefHt_Hawc'] = float_read(f.readline().split()[0])
 
         # Scaling parameters for turbulence (still hawc_wind_params)
         f.readline()
@@ -892,8 +892,9 @@ class InputReader_OpenFAST(InputReader_Common):
         f.readline()
         self.fst_vt['InflowWind']['URef']        = float_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['WindProfile'] = int(f.readline().split()[0])
-        self.fst_vt['InflowWind']['PLExp']       = float_read(f.readline().split()[0])
+        self.fst_vt['InflowWind']['PLExp_Hawc']  = float_read(f.readline().split()[0])
         self.fst_vt['InflowWind']['Z0']          = float_read(f.readline().split()[0])
+        self.fst_vt['InflowWind']['XOffset']     = float_read(f.readline().split()[0])
 
         # Inflow Wind Output Parameters (inflow_out_params)
         f.readline()
@@ -1005,7 +1006,6 @@ class InputReader_OpenFAST(InputReader_Common):
             self.fst_vt['AeroDynTower']['TwrRe'][i]  = data[0]
             self.fst_vt['AeroDynTower']['TwrCD'][i,:]  = data[1:]
 
-
     def read_AeroDyn15(self):
         # AeroDyn v15.03
 
@@ -1021,7 +1021,7 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['AeroDyn15']['WakeMod']       = int(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['AFAeroMod']     = int(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['TwrPotent']     = int(f.readline().split()[0])
-        self.fst_vt['AeroDyn15']['TwrShadow']     = bool_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['TwrShadow']     = int(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['TwrAero']       = bool_read(f.readline().split()[0])
         self.fst_vt['AeroDyn15']['FrozenWake']    = bool_read(f.readline().split()[0])
         if self.FAST_ver.lower() != 'fast8':
@@ -1055,7 +1055,7 @@ class InputReader_OpenFAST(InputReader_Common):
         # Dynamic Blade-Element/Momentum Theory Options 
         f.readline()
         self.fst_vt['AeroDyn15']['DBEMT_Mod']          = int(f.readline().split()[0])
-        self.fst_vt['AeroDyn15']['tau1_const']         = int(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['tau1_const']         = float_read(f.readline().split()[0])
 
         # Olaf -- cOnvecting LAgrangian Filaments (Free Vortex Wake) Theory Options
         f.readline()
@@ -1095,11 +1095,13 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['AeroDyn15']['TwrElev']        = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
         self.fst_vt['AeroDyn15']['TwrDiam']        = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
         self.fst_vt['AeroDyn15']['TwrCd']          = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
+        self.fst_vt['AeroDyn15']['TwrTI']          = [None]*self.fst_vt['AeroDyn15']['NumTwrNds']
         for i in range(self.fst_vt['AeroDyn15']['NumTwrNds']):
             data = [float(val) for val in f.readline().split()]
             self.fst_vt['AeroDyn15']['TwrElev'][i] = data[0] 
             self.fst_vt['AeroDyn15']['TwrDiam'][i] = data[1] 
             self.fst_vt['AeroDyn15']['TwrCd'][i]   = data[2]
+            self.fst_vt['AeroDyn15']['TwrTI'][i]   = data[3]
 
         # Outputs
         f.readline()
@@ -1123,6 +1125,10 @@ class InputReader_OpenFAST(InputReader_Common):
         self.read_AeroDyn15Blade()
         self.read_AeroDyn15Polar()
         self.read_AeroDyn15Coord()
+        if self.fst_vt['AeroDyn15']['WakeMod'] == 3:
+            if self.fst_vt['AeroDyn15']['AFAeroMod'] == 2:
+                raise Exception('OLAF is called with unsteady airfoil aerodynamics, but OLAF currently only supports AFAeroMod == 1')
+            self.read_AeroDyn15OLAF()
 
     def read_AeroDyn15Blade(self):
         # AeroDyn v5.00 Blade Definition File
@@ -1267,6 +1273,56 @@ class InputReader_OpenFAST(InputReader_Common):
 
                 f.close()
 
+    def read_AeroDyn15OLAF(self):
+        
+        self.fst_vt['AeroDyn15']['OLAF'] = {}
+        olaf_filename = os.path.join(self.FAST_directory, self.fst_vt['AeroDyn15']['OLAFInputFileName'])
+        f = open(olaf_filename)
+        f.readline()
+        f.readline()
+        f.readline()
+        self.fst_vt['AeroDyn15']['OLAF']['IntMethod']       = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['DTfvw']           = float_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['FreeWakeStart']   = float_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['FullCircStart']   = float_read(f.readline().split()[0])
+        f.readline()
+        self.fst_vt['AeroDyn15']['OLAF']['CircSolvingMethod']   = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['CircSolvConvCrit']    = float_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['CircSolvRelaxation']  = float_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['CircSolvMaxIter']     = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['PrescribedCircFile']  = f.readline().split()[0]
+        f.readline()
+        f.readline()
+        f.readline()
+        self.fst_vt['AeroDyn15']['OLAF']['nNWPanel']   = int(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['WakeLength'] = int(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['FreeWakeLength']  = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['FWShedVorticity'] = float_read(f.readline().split()[0])
+        f.readline()
+        self.fst_vt['AeroDyn15']['OLAF']['DiffusionMethod'] = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['RegDeterMethod']  = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['RegFunction']     = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['WakeRegMethod']   = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['WakeRegFactor']   = float(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['WingRegFactor']   = float(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['CoreSpreadEddyVisc'] = int(f.readline().split()[0])
+        f.readline()
+        self.fst_vt['AeroDyn15']['OLAF']['TwrShadowOnWake'] = bool_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['ShearModel']      = int_read(f.readline().split()[0])
+        f.readline()
+        self.fst_vt['AeroDyn15']['OLAF']['VelocityMethod']  = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['TreeBranchFactor']= float_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['PartPerSegment']  = int(f.readline().split()[0])
+        f.readline()
+        f.readline()
+        self.fst_vt['AeroDyn15']['OLAF']['WrVTk']       = int(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['nVTKBlades']  = int(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['VTKCoord']    = int_read(f.readline().split()[0])
+        self.fst_vt['AeroDyn15']['OLAF']['VTK_fps']     = float_read(f.readline().split()[0])
+        f.readline()
+        f.close()
+
+
     def read_ServoDyn(self):
         # ServoDyn v1.05 Input File
         # Currently no differences between FASTv8.16 and OpenFAST.
@@ -1290,12 +1346,12 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['ServoDyn']['TPitManS1']    = float_read(f.readline().split()[0])
         self.fst_vt['ServoDyn']['TPitManS2']    = float_read(f.readline().split()[0])
         self.fst_vt['ServoDyn']['TPitManS3']    = float_read(f.readline().split()[0])
-        self.fst_vt['ServoDyn']['PitManRat1']   = float_read(f.readline().split()[0])
-        self.fst_vt['ServoDyn']['PitManRat2']   = float_read(f.readline().split()[0])
-        self.fst_vt['ServoDyn']['PitManRat3']   = float_read(f.readline().split()[0])
-        self.fst_vt['ServoDyn']['BlPitchF1']    = float_read(f.readline().split()[0])
-        self.fst_vt['ServoDyn']['BlPitchF2']    = float_read(f.readline().split()[0])
-        self.fst_vt['ServoDyn']['BlPitchF3']    = float_read(f.readline().split()[0])
+        self.fst_vt['ServoDyn']['PitManRat(1)'] = float_read(f.readline().split()[0])
+        self.fst_vt['ServoDyn']['PitManRat(2)'] = float_read(f.readline().split()[0])
+        self.fst_vt['ServoDyn']['PitManRat(3)'] = float_read(f.readline().split()[0])
+        self.fst_vt['ServoDyn']['BlPitchF(1)']  = float_read(f.readline().split()[0])
+        self.fst_vt['ServoDyn']['BlPitchF(2)']  = float_read(f.readline().split()[0])
+        self.fst_vt['ServoDyn']['BlPitchF(3)']  = float_read(f.readline().split()[0])
 
         # Geneartor and Torque Control (gen_torq_ctrl)
         f.readline()
@@ -1427,15 +1483,14 @@ class InputReader_OpenFAST(InputReader_Common):
         if os.path.exists(discon_in_file):
 
             # Read DISCON infiles
-            file_processing = ROSCO_utilities.FileProcessing()
-            self.fst_vt['DISCON_in'] = file_processing.read_DISCON(discon_in_file)
+            self.fst_vt['DISCON_in'] = ROSCO_utilities.read_DISCON(discon_in_file)
 
             # Some additional filename parsing
             self.fst_vt['DISCON_in']['PerfFileName'] = os.path.abspath(os.path.join(self.FAST_directory, self.fst_vt['DISCON_in']['PerfFileName']))
 
             # Try to read rotor performance data if it is available
             try:
-                pitch_vector, tsr_vector, Cp_table, Ct_table, Cq_table = file_processing.load_from_txt(self.fst_vt['DISCON_in']['PerfFileName'])
+                pitch_vector, tsr_vector, Cp_table, Ct_table, Cq_table = ROSCO_utilities.load_from_txt(self.fst_vt['DISCON_in']['PerfFileName'])
 
                 RotorPerformance = ROSCO_turbine.RotorPerformance
                 Cp = RotorPerformance(Cp_table, pitch_vector, tsr_vector)
@@ -1451,14 +1506,13 @@ class InputReader_OpenFAST(InputReader_Common):
                 self.fst_vt['DISCON_in']['Ct_table'] = Ct_table
                 self.fst_vt['DISCON_in']['Cq_table'] = Cq_table
             except:
-                pass
+                print('WARNING: Cp table not loaded!')
             
             # Add some DISCON entries that might be needed within WISDEM        
             self.fst_vt['DISCON_in']['v_rated'] = 1.
         
         else:
             del self.fst_vt['DISCON_in']
-
 
     def read_HydroDyn(self):
         # AeroDyn v2.03
@@ -2026,7 +2080,6 @@ class InputReader_OpenFAST(InputReader_Common):
             self.set_outlist(self.fst_vt['outlist']['SubDyn'], channel_list)
             data = f.readline()
 
-
     def read_MAP(self):
         # MAP++
 
@@ -2078,7 +2131,6 @@ class InputReader_OpenFAST(InputReader_Common):
         f.readline()
         f.readline()
         self.fst_vt['MAP']['Option']   = [str(val) for val in f.readline().strip().split()]
-
 
     def read_MoorDyn(self):
 
@@ -2154,7 +2206,8 @@ class InputReader_OpenFAST(InputReader_Common):
         self.fst_vt['MoorDyn']['NumSegs']       = []
         self.fst_vt['MoorDyn']['NodeAnch']      = []
         self.fst_vt['MoorDyn']['NodeFair']      = []
-        self.fst_vt['MoorDyn']['Flags_Outputs'] = []
+        self.fst_vt['MoorDyn']['Outputs']       = []
+        self.fst_vt['MoorDyn']['CtrlChan']      = []
         for i in range(self.fst_vt['MoorDyn']['NLines']):
             data_line = f.readline().strip().split()
             self.fst_vt['MoorDyn']['Line'].append(int(data_line[0]))
@@ -2163,7 +2216,11 @@ class InputReader_OpenFAST(InputReader_Common):
             self.fst_vt['MoorDyn']['NumSegs'].append(int(data_line[3]))
             self.fst_vt['MoorDyn']['NodeAnch'].append(int(data_line[4]))
             self.fst_vt['MoorDyn']['NodeFair'].append(int(data_line[5]))
-            self.fst_vt['MoorDyn']['Flags_Outputs'].append(str(data_line[6]))
+            self.fst_vt['MoorDyn']['Outputs'].append(str(data_line[6]))
+            if len(data_line) > 7:
+                self.fst_vt['MoorDyn']['CtrlChan'].append(int(data_line[7]))
+            else:
+                self.fst_vt['MoorDyn']['CtrlChan'].append(0)
         f.readline()
         self.fst_vt['MoorDyn']['dtM']       = float_read(f.readline().split()[0])
         self.fst_vt['MoorDyn']['kbot']      = float_read(f.readline().split()[0])

@@ -16,30 +16,31 @@ import numpy as np
 import matplotlib.pyplot as plt 
 # ROSCO toolbox modules 
 from ROSCO_toolbox import utilities as ROSCO_utilities
+from ROSCO_toolbox.ofTools.fast_io import output_processing
+import os
 
-# Instantiate fast_IO
-fast_io = ROSCO_utilities.FAST_IO()
+this_dir = os.path.dirname(__file__)
 
 # Define openfast output filenames
-# filenames = ["../Test_Cases/5MW_Land/5MW_Land.outb"]
+filenames = ["../Test_Cases/NREL-5MW/NREL-5MW.outb"]
+# ---- Note: Could load and plot multiple cases, textfiles, and binaries...
+# filenames = ["../Test_Cases/NREL-5MW/NREL-5MW.outb",
+#             "../Test_Cases/NREL-5MW/NREL-5MW_ex8.outb"]
 
-# ---- Note: Could plot multiple cases, textfiles, and binaries...
-filenames = ["../Test_Cases/5MW_Land_DLL_WTurb/5MW_Land_DLL_WTurb.out",
-            "../Test_Cases/5MW_Land_DLL_WTurb/5MW_Land_DLL_WTurb.outb"]
-
-# Load output info and data
-allinfo, alldata = fast_io.load_output(filenames)
-
-# Trim time series
-for i,(info,data) in enumerate(zip(allinfo,alldata)):
-    alldata[i] = fast_io.trim_output(info, data, tmin=0, tmax=50)
+filenames = [os.path.join(this_dir,file) for file in filenames]
 
 #  Define Plot cases 
 #  --- Comment,uncomment, create, and change these as desired...
 cases = {}
 cases['Baseline'] = ['Wind1VelX', 'BldPitch1', 'GenTq', 'RotSpeed']
 cases['Rotor'] = ['BldPitch1', 'GenTq', 'GenPwr']
-cases['Rotor Performance'] = ['RtVAvgxh', 'RtTSR', 'RtAeroCp']
 
-# Plot, woohoo!
-fast_io.plot_fast_out(cases, allinfo, alldata)
+# Instantiate fast_IO
+fast_out = output_processing.output_processing()
+# Can also do:
+# fast_out = output_processing.output_processing(filenames=filenames, cases=cases)
+# fast_out.plot_fast_out()
+
+# Load and plot
+fastout = fast_out.load_fast_out(filenames, tmin=10)
+fast_out.plot_fast_out(cases=cases)

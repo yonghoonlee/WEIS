@@ -10,7 +10,6 @@ from copy import deepcopy
 
 import numpy as np
 from marmot import process
-
 from wisdem.orbit.core import Vessel
 from wisdem.orbit.core.logic import position_onsite
 from wisdem.orbit.phases.install import InstallPhase
@@ -42,14 +41,13 @@ class ArrayCableInstallation(InstallPhase):
         "array_cable_trench_vessel": "str (optional)",
         "site": {"distance": "km", "depth": "m"},
         "array_system": {
+            "system_cost": "USD",
             "num_strings": "int (optional, default: 10)",
             "free_cable_length": "km (optional, default: 'depth')",
             "cables": {
                 "name (variable)": {
                     "linear_density": "t/km",
-                    "cable_sections": [
-                        ("length, km", "int", "speed, km/h (optional)")
-                    ],
+                    "cable_sections": [("length, km", "int", "speed, km/h (optional)")],
                 }
             },
         },
@@ -71,7 +69,6 @@ class ArrayCableInstallation(InstallPhase):
 
         config = self.initialize_library(config, **kwargs)
         self.config = self.validate_config(config)
-        self.extract_defaults()
 
         self.initialize_port()
         self.setup_simulation(**kwargs)
@@ -93,8 +90,7 @@ class ArrayCableInstallation(InstallPhase):
 
         self.num_strings = system.get("num_strings", 10)
         self.cable_data = [
-            (Cable(data["linear_density"]), deepcopy(data["cable_sections"]))
-            for _, data in system["cables"].items()
+            (Cable(data["linear_density"]), deepcopy(data["cable_sections"])) for _, data in system["cables"].items()
         ]
 
         # Perform cable installation
@@ -108,6 +104,12 @@ class ArrayCableInstallation(InstallPhase):
             free_cable_length=self.free_cable_length,
             **kwargs,
         )
+
+    @property
+    def system_capex(self):
+        """Returns total procurement cost of the array system."""
+
+        return self.config["array_system"]["system_cost"]
 
     def initialize_installation_vessel(self):
         """Creates the array cable installation vessel."""
@@ -234,9 +236,7 @@ def install_array_cables(
                 try:
                     # Dig trench along each cable section distance
                     trench_distance = trench_sections.pop(0)
-                    yield dig_array_cables_trench(
-                        trench_vessel, trench_distance, **kwargs
-                    )
+                    yield dig_array_cables_trench(trench_vessel, trench_distance, **kwargs)
 
                 except IndexError:
                     trench_vessel.at_site = False
@@ -244,9 +244,7 @@ def install_array_cables(
                     trench_vessel.at_port = True
                     break
 
-        vessel.submit_debug_log(
-            message="Array cable trench digging process completed!"
-        )
+        vessel.submit_debug_log(message="Array cable trench digging process completed!")
 
     ## Cable Lay Process
     to_bury = []
@@ -319,9 +317,7 @@ def install_array_cables(
                     yield terminate_cable(vessel, **kwargs)
 
                     if burial_vessel is None:
-                        breakpoints = check_for_completed_string(
-                            vessel, installed, total_cable_length, breakpoints
-                        )
+                        breakpoints = check_for_completed_string(vessel, installed, total_cable_length, breakpoints)
 
         # Transit back to port
         vessel.at_site = False
@@ -330,9 +326,7 @@ def install_array_cables(
 
     ## Burial Process
     if burial_vessel is None:
-        vessel.submit_debug_log(
-            message="Array cable lay/burial process completed!"
-        )
+        vessel.submit_debug_log(message="Array cable lay/burial process completed!")
 
     else:
         vessel.submit_debug_log(message="Array cable lay process completed!")
@@ -363,9 +357,7 @@ def bury_array_cables(vessel, sections, breakpoints, **kwargs):
         yield bury_cable(vessel, length, **kwargs)
         installed += length
 
-        breakpoints = check_for_completed_string(
-            vessel, installed, total_length, breakpoints
-        )
+        breakpoints = check_for_completed_string(vessel, installed, total_length, breakpoints)
 
     vessel.submit_debug_log(message="Array cable burial process completed!")
 

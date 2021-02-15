@@ -9,6 +9,7 @@ In this example:
 '''
 
 # Python modules
+import os
 import matplotlib.pyplot as plt
 # ROSCO toolbox modules 
 from ROSCO_toolbox import turbine as ROSCO_turbine
@@ -18,9 +19,9 @@ from ROSCO_toolbox import turbine as ROSCO_turbine
 turbine = ROSCO_turbine.Turbine
 
 # Load quick from python pickle
-turbine = turbine.load('NREL5MW_saved.p')
+turbine = turbine.load(os.path.join(os.path.dirname(__file__),'NREL5MW_saved.p'))
 
 # plot rotor performance 
 print('Plotting Cp data')
-turbine.Cp.plot_performance(turbine.Cp_table, turbine.pitch_initial_rad, turbine.TSR_initial)
+turbine.Cp.plot_performance()
 plt.show()

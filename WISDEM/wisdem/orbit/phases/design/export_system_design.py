@@ -6,7 +6,6 @@ __maintainer__ = "Rob Hammond"
 __email__ = "robert.hammond@nrel.gov"
 
 import numpy as np
-
 from wisdem.orbit.phases.design._cables import CableSystem
 
 
@@ -81,9 +80,7 @@ class ExportSystemDesign(CableSystem):
         self._distance_to_landfall = config["site"]["distance_to_landfall"]
         self._get_touchdown_distance()
         try:
-            self._distance_to_interconnection = config["landfall"][
-                "interconnection_distance"
-            ]
+            self._distance_to_interconnection = config["landfall"]["interconnection_distance"]
         except KeyError:
             self._distance_to_interconnection = 3
 
@@ -207,7 +204,8 @@ class ExportSystemDesign(CableSystem):
 
         output = {
             "export_system": {
-                "interconnection_distance": self._distance_to_interconnection
+                "interconnection_distance": self._distance_to_interconnection,
+                "system_cost": self.total_cost,
             }
         }
 

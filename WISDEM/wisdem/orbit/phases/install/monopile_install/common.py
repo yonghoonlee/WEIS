@@ -7,17 +7,15 @@ __email__ = "jake.nunemaker@nrel.gov"
 
 
 from marmot import process
-
 from wisdem.orbit.core import Cargo
-from wisdem.orbit.core._defaults import process_times as pt
+from wisdem.orbit.core.logic import jackdown_if_required
+from wisdem.orbit.core.defaults import process_times as pt
 
 
 class Monopile(Cargo):
     """Monopile Cargo"""
 
-    def __init__(
-        self, length=None, diameter=None, mass=None, deck_space=None, **kwargs
-    ):
+    def __init__(self, length=None, diameter=None, mass=None, deck_space=None, **kwargs):
         """
         Creates an instance of `Monopile`.
         """
@@ -124,7 +122,7 @@ def lower_monopile(vessel, **kwargs):
     depth = kwargs.get("site_depth", None)
     rate = vessel.crane.crane_rate(**kwargs)
 
-    height = (vessel.jacksys.air_gap + vessel.jacksys.leg_pen + depth) / rate
+    height = (depth + 10) / rate  # Assumed 10m deck height added to site depth
     lower_time = height / rate
 
     yield vessel.task(
@@ -184,12 +182,7 @@ def lower_transition_piece(vessel, **kwargs):
     vessel.task representing time to "Lower Transition Piece".
     """
 
-    rate = vessel.crane.crane_rate(**kwargs)
-    lower_time = vessel.jacksys.air_gap / rate
-
-    yield vessel.task(
-        "Lower TP", lower_time, constraints=vessel.operational_limits, **kwargs
-    )
+    yield vessel.task("Lower TP", 1, constraints=vessel.operational_limits, **kwargs)
 
 
 @process
@@ -212,9 +205,7 @@ def bolt_transition_piece(vessel, **kwargs):
     key = "tp_bolt_time"
     bolt_time = kwargs.get(key, pt[key])
 
-    yield vessel.task(
-        "Bolt TP", bolt_time, constraints=vessel.operational_limits, **kwargs
-    )
+    yield vessel.task("Bolt TP", bolt_time, constraints=vessel.operational_limits, **kwargs)
 
 
 @process
@@ -261,9 +252,7 @@ def cure_transition_piece_grout(vessel, **kwargs):
     key = "grout_cure_time"
     cure_time = kwargs.get(key, pt[key])
 
-    yield vessel.task(
-        "Cure TP Grout", cure_time, constraints=vessel.transit_limits, **kwargs
-    )
+    yield vessel.task("Cure TP Grout", cure_time, constraints=vessel.transit_limits, **kwargs)
 
 
 @process
@@ -306,7 +295,7 @@ def install_transition_piece(vessel, tp, **kwargs):
     - Reequip crane, ``vessel.crane.reequip()``
     - Lower transition piece, ``tasks.lower_transition_piece()``
     - Install connection, see below.
-    - Jackdown, ``vessel.jacksys.jacking_time()``
+    - Jackdown, ``vessel.jacksys.jacking_time()`` (if a jackup vessel)
 
     The transition piece can either be installed with a bolted or a grouted
     connection. By default, ORBIT uses the bolted connection with the following
@@ -330,9 +319,6 @@ def install_transition_piece(vessel, tp, **kwargs):
 
     connection = kwargs.get("tp_connection_type", "bolted")
     reequip_time = vessel.crane.reequip(**kwargs)
-    site_depth = kwargs.get("site_depth", None)
-    extension = kwargs.get("extension", site_depth + 10)
-    jackdown_time = vessel.jacksys.jacking_time(extension, site_depth)
 
     yield vessel.task(
         "Crane Reequip",
@@ -342,20 +328,17 @@ def install_transition_piece(vessel, tp, **kwargs):
     )
     yield lower_transition_piece(vessel, **kwargs)
 
-    if connection is "bolted":
+    if connection == "bolted":
         yield bolt_transition_piece(vessel, **kwargs)
 
-    elif connection is "grouted":
+    elif connection == "grouted":
 
         yield pump_transition_piece_grout(vessel, **kwargs)
         yield cure_transition_piece_grout(vessel)
 
     else:
         raise Exception(
-            f"Transition piece connection type '{connection}'"
-            "not recognized. Must be 'bolted' or 'grouted'."
+            f"Transition piece connection type '{connection}'" "not recognized. Must be 'bolted' or 'grouted'."
         )
 
-    yield vessel.task(
-        "Jackdown", jackdown_time, constraints=vessel.transit_limits, **kwargs
-    )
+    yield jackdown_if_required(vessel, **kwargs)

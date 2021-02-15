@@ -1,0 +1,192 @@
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: WEIS_add-ons_analysis
+title: WEIS analysis ontology add-ons beyond WISDEM ontology
+description: Scehma that describes the analysis and optimization options for WEIS
+type: object
+properties:
+    general:
+        type: object
+        default: {}
+        properties:
+            folder_output:
+                type: string
+                default: output
+                description: Name of folder to dump output files
+            fname_output:
+                type: string
+                default: output
+                description: File prefix for output files
+    design_variables:
+        type: object
+        default: {}
+        properties:
+            control:
+                type: object
+                default: {}
+                properties:
+                    flaps:
+                        type: object
+                        default: {}
+                        properties:
+                            te_flap_end:
+                                type: object
+                                default: {}
+                                properties:
+                                    flag: &flag
+                                        type: boolean
+                                        default: False
+                                        description: Activates as a design variable or constraint
+                                    minimum:
+                                        type: number
+                                        maximum: 1.0
+                                        minimum: 0.1
+                                        default: 1.0
+                                    maximum:
+                                        type: number
+                                        maximum: 1.0
+                                        minimum: 0.1
+                                        default: 1.0
+                            te_flap_ext:
+                                type: object
+                                default: {}
+                                properties:
+                                    flag: *flag
+                                    minimum:
+                                        type: number
+                                        maximum: 1.0
+                                        minimum: 0.0
+                                        default: 0.01
+                                    maximum:
+                                        type: number
+                                        maximum: 1.0
+                                        minimum: 0.0
+                                        default: 0.2
+                    tsr:
+                        type: object
+                        default: {}
+                        properties:
+                            flag: *flag
+                            min_gain:  &mingain
+                                type: number
+                                default: 0.5
+                                unit: none
+                                description: Lower bound on scalar multiplier that will be applied to value at control points
+                            max_gain: &maxgain
+                                type: number
+                                default: 1.5
+                                unit: none
+                                description: Upper bound on scalar multiplier that will be applied to value at control points
+                    ps_percent:
+                        type: object
+                        default: {}
+                        description: Percent peak shaving as a design variable
+                        properties:
+                            flag: *flag
+                            lower_bound:
+                                type: number
+                                default: 0.0
+                                unit: none
+                            upper_bound:
+                                type: number
+                                default: 50.0
+                                unit: none
+                    servo:
+                        type: object
+                        default: {}
+                        properties:
+                            pitch_control:
+                                type: object
+                                default: {}
+                                properties:
+                                    flag: *flag
+                                    omega_min: &omega_min
+                                        type: number
+                                        default: 0.1
+                                        minimum: 0.0
+                                        maximum: 10.0
+                                        unit: none
+                                    omega_max: &omega_max
+                                        type: number
+                                        default: 0.7
+                                        minimum: 0.0
+                                        maximum: 10.0
+                                        unit: none
+                                    zeta_min: &zeta_min
+                                        type: number
+                                        default: 0.4
+                                        minimum: 0.0
+                                        maximum: 10.0
+                                        unit: none
+                                    zeta_max: &zeta_max
+                                        type: number
+                                        default: 1.5
+                                        minimum: 0.0
+                                        maximum: 10.0
+                                        unit: none
+                            torque_control:
+                                type: object
+                                default: {}
+                                properties:
+                                    flag: *flag
+                                    omega_min: *omega_min
+                                    omega_max: *omega_max
+                                    zeta_min: *zeta_min
+                                    zeta_max: *zeta_max
+                            flap_control:
+                                type: object
+                                default: {}
+                                properties:
+                                    flag: *flag
+                                    omega_min: *omega_min
+                                    omega_max: *omega_max
+                                    zeta_min: *zeta_min
+                                    zeta_max: *zeta_max
+                            ipc_control:
+                                type: object
+                                default: {}
+                                properties:
+                                    flag: *flag
+                                    omega_min: *omega_min
+                                    omega_max: *omega_max
+                                    zeta_min: *zeta_min
+                                    zeta_max: *zeta_max
+
+    constraints:
+        # GB: These all need gammas or safety factors
+        type: object
+        default: {}
+        properties:
+            control:
+                type: object
+                default: {}
+                properties:
+                    flap_control:
+                        type: object
+                        description: Words TODO
+                        default: {}
+                        properties:
+                            flag: *flag
+                            min: &flapminmax
+                                type: number
+                                default: 0.05
+                                minimum: 0.0
+                                maximum: 1.0
+                            max: *flapminmax
+                    rotor_overspeed:
+                        type: object
+                        description: Words TODO
+                        default: {}
+                        properties:
+                            flag: *flag
+                            min: &rotor_overspeed
+                                type: number
+                                default: 0.05
+                                minimum: 0.0
+                                maximum: 1.0
+                            max: *rotor_overspeed
+
+    merit_figure:
+        type: string
+        description: Objective function / merit figure for optimization
+        default: LCOE
+        enum: [LCOE, AEP, Cp, blade_mass, tower_mass, tower_cost, monopile_mass, monopile_cost, structural_mass, structural_cost, blade_tip_deflection, My_std, flp1_std, DEL_RootMyb, DEL_TwrBsMyt, rotor_overspeed]

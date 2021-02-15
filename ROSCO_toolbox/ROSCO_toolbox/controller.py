@@ -12,7 +12,6 @@
 import numpy as np
 import sys
 import datetime
-from wisdem.ccblade import CCAirfoil, CCBlade
 from scipy import interpolate, gradient, integrate
 
 # Some useful constants
@@ -160,12 +159,13 @@ class Controller():
 
         # separate wind speeds by operation regions
         v_below_rated = np.arange(turbine.v_min,turbine.v_rated,0.5)             # below rated
-        v_above_rated = np.arange(turbine.v_rated+0.5,turbine.v_max,0.5)             # above rated
+        v_above_rated = np.arange(turbine.v_rated,turbine.v_max,0.5)             # above rated
         v = np.concatenate((v_below_rated, v_above_rated))
 
         # separate TSRs by operations regions
         TSR_below_rated = np.ones(len(v_below_rated))*turbine.TSR_operational # below rated     
-        TSR_above_rated = rated_rotor_speed*R/v_above_rated                     # above rated
+        TSR_above_rated = rated_rotor_speed*R/v_above_rated                   # above rated
+        # TSR_below_rated = np.minimum(np.max(TSR_above_rated), TSR_below_rated)
         TSR_op = np.concatenate((TSR_below_rated, TSR_above_rated))   # operational TSRs
 
         # Find expected operational Cp values
@@ -280,7 +280,7 @@ class Controller():
         self.B_tau          = B_tau
         self.B_wind         = B_wind
         self.TSR_op         = TSR_op
-        self.omega_op       = TSR_op*v/R
+        self.omega_op       = np.minimum(turbine.rated_rotor_speed, TSR_op*v/R)
         self.Pi_omega       = Pi_omega
         self.Pi_beta        = Pi_beta
         self.Pi_wind        = Pi_wind
@@ -303,7 +303,8 @@ class Controller():
         # --- Floating feedback term ---
         if self.Fl_Mode == 1: # Floating feedback
             Kp_float = (dtau_dv/dtau_dbeta) * turbine.TowerHt * Ng 
-            self.Kp_float = Kp_float[len(v_below_rated)]
+            f_kp     = interpolate.interp1d(v,Kp_float)
+            self.Kp_float = f_kp(turbine.v_rated + 0.5)   # get Kp at v_rated + 0.5 m/s
             # Turn on the notch filter if floating
             self.F_NotchType = 2
             
@@ -313,7 +314,9 @@ class Controller():
         else:
             self.Kp_float = 0.0
 
-
+        # --- Individual pitch control ---
+        self.Ki_ipc1p = 0.0
+        
         # Flap actuation 
         if self.Flp_Mode >= 1:
             self.flp_angle = 0.0
@@ -364,18 +367,19 @@ class Controller():
             phi_vec.append(self.pitch_op[i] + turbine.twist*deg2rad)
 
         # Lift and drag coefficients
-        Cl0 = np.zeros_like(turbine.af_data)
-        Cd0 = np.zeros_like(turbine.af_data)
-        Clp = np.zeros_like(turbine.af_data)
-        Cdp = np.zeros_like(turbine.af_data)
-        Clm = np.zeros_like(turbine.af_data)
-        Cdm = np.zeros_like(turbine.af_data)
+        num_af = len(turbine.af_data) # number of airfoils
+        Cl0 = np.zeros(num_af)
+        Cd0 = np.zeros(num_af)
+        Clp = np.zeros(num_af)
+        Cdp = np.zeros(num_af)
+        Clm = np.zeros(num_af)
+        Cdm = np.zeros(num_af)
         
         for i,section in enumerate(turbine.af_data):
             # assume airfoil section as AOA of zero for slope calculations - for now
             a0_ind = section[0]['Alpha'].index(np.min(np.abs(section[0]['Alpha'])))
             # Coefficients 
-            if section[0]['NumTabs'] == 3:  # sections with flaps
+            if section[0]['NumTabs'] == 3:  # sections with 3 flaps
                 Clm[i,] = section[0]['Cl'][a0_ind]
                 Cdm[i,] = section[0]['Cd'][a0_ind]
                 Cl0[i,] = section[1]['Cl'][a0_ind]
@@ -383,7 +387,7 @@ class Controller():
                 Clp[i,] = section[2]['Cl'][a0_ind]
                 Cdp[i,] = section[2]['Cd'][a0_ind]
                 Ctrl_flp = float(section[2]['Ctrl'])
-            else:                           # sections without flaps
+            else:                           # sections without 3 flaps
                 Cl0[i,] = Clp[i,] = Clm[i,] = section[0]['Cl'][a0_ind]
                 Cd0[i,] = Cdp[i,] = Cdm[i,] = section[0]['Cd'][a0_ind]
                 Ctrl = float(section[0]['Ctrl'])
@@ -475,7 +479,7 @@ class ControllerBlocks():
             else:
                 Ct_max[i] = np.minimum( np.max(Ct_tsr), Ct_max[i])
             # Define minimum pitch angle
-            f_pitch_min = interpolate.interp1d(Ct_tsr, turbine.pitch_initial_rad, bounds_error=False, fill_value=(turbine.pitch_initial_rad[0],turbine.pitch_initial_rad[-1]))
+            f_pitch_min = interpolate.interp1d(Ct_tsr, turbine.pitch_initial_rad, kind='cubic', bounds_error=False, fill_value=(turbine.pitch_initial_rad[0],turbine.pitch_initial_rad[-1]))
             pitch_min[i] = max(controller.min_pitch, f_pitch_min(Ct_max[i]))
 
         controller.ps_min_bld_pitch = pitch_min

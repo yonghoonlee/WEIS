@@ -7,7 +7,6 @@ __email__ = "jake.nunemaker@nrel.gov"
 
 
 from numpy import exp, log
-
 from wisdem.orbit.phases.design import DesignPhase
 
 
@@ -24,12 +23,17 @@ class SparDesign(DesignPhase):
             "ballast_material_CR": "$/t (optional, default: 100)",
             "secondary_steel_CR": "$/t (optional, default: 7250)",
             "towing_speed": "km/h (optional, default: 6)",
-            "design_time": "h, (optional, default: 0)",
-            "design_cost": "h, (optional, default: 0)",
         },
     }
 
-    output_config = {}
+    output_config = {
+        "substructure": {
+            "mass": "t",
+            "ballasted_mass": "t",
+            "unit_cost": "USD",
+            "towing_speed": "km/h",
+        }
+    }
 
     def __init__(self, config, **kwargs):
         """
@@ -42,7 +46,6 @@ class SparDesign(DesignPhase):
 
         config = self.initialize_library(config, **kwargs)
         self.config = self.validate_config(config)
-        self.extract_defaults()
         self._design = self.config.get("spar_design", {})
 
         self._outputs = {}
@@ -53,11 +56,11 @@ class SparDesign(DesignPhase):
         substructure = {
             "mass": self.unballasted_mass,
             "ballasted_mass": self.ballasted_mass,
-            "cost": self.substructure_cost,
+            "unit_cost": self.substructure_cost,
             "towing_speed": self._design.get("towing_speed", 6),
         }
 
-        self._outputs["spar"] = substructure
+        self._outputs["substructure"] = substructure
 
     @property
     def stiffened_column_mass(self):
@@ -132,11 +135,7 @@ class SparDesign(DesignPhase):
         rating = self.config["turbine"]["turbine_rating"]
         depth = self.config["site"]["depth"]
 
-        mass = exp(
-            3.58
-            + 0.196 * (rating ** 0.5) * log(rating)
-            + 0.00001 * depth * log(depth)
-        )
+        mass = exp(3.58 + 0.196 * (rating ** 0.5) * log(rating) + 0.00001 * depth * log(depth))
 
         return mass
 
@@ -154,11 +153,7 @@ class SparDesign(DesignPhase):
     def unballasted_mass(self):
         """Returns the unballasted mass of the spar substructure."""
 
-        return (
-            self.stiffened_column_mass
-            + self.tapered_column_mass
-            + self.secondary_steel_mass
-        )
+        return self.stiffened_column_mass + self.tapered_column_mass + self.secondary_steel_mass
 
     @property
     def ballasted_mass(self):
@@ -170,12 +165,7 @@ class SparDesign(DesignPhase):
     def substructure_cost(self):
         """Returns the total cost (including ballast) of the spar substructure."""
 
-        return (
-            self.stiffened_column_cost
-            + self.tapered_column_cost
-            + self.secondary_steel_cost
-            + self.ballast_cost
-        )
+        return self.stiffened_column_cost + self.tapered_column_cost + self.secondary_steel_cost + self.ballast_cost
 
     @property
     def detailed_output(self):
@@ -195,28 +185,11 @@ class SparDesign(DesignPhase):
         return _outputs
 
     @property
-    def total_substructure_cost(self):
-        """Retruns cost of all substructures."""
+    def total_cost(self):
+        """Returns total phase cost in $USD."""
 
         num = self.config["plant"]["num_turbines"]
         return num * self.substructure_cost
-
-    @property
-    def total_phase_cost(self):
-        """Returns total phase cost in $USD."""
-
-        _design = self.config.get("spar_design", {})
-        design_cost = _design.get("design_cost", 0.0)
-
-        return design_cost + self.total_substructure_cost
-
-    @property
-    def total_phase_time(self):
-        """Returns total phase time in hours."""
-
-        _design = self.config.get("spar_design", {})
-        phase_time = _design.get("design_time", 0.0)
-        return phase_time
 
     @property
     def design_result(self):

@@ -11,8 +11,7 @@ from collections import Counter, OrderedDict
 
 import numpy as np
 from scipy.optimize import fsolve
-
-from wisdem.orbit.library import extract_library_specs
+from wisdem.orbit.core.library import extract_library_specs
 from wisdem.orbit.phases.design import DesignPhase
 
 
@@ -101,9 +100,7 @@ class Cable:
             self.ac_resistance,
             2 * math.pi * self.line_frequency * self.inductance,
         )
-        den = complex(
-            conductance, 2 * math.pi * self.line_frequency * self.capacitance
-        )
+        den = complex(conductance, 2 * math.pi * self.line_frequency * self.capacitance)
         self.char_impedance = np.sqrt(num / den)
 
     def calc_power_factor(self):
@@ -111,9 +108,7 @@ class Cable:
         Calculate power factor.
         """
 
-        phase_angle = math.atan(
-            np.imag(self.char_impedance) / np.real(self.char_impedance)
-        )
+        phase_angle = math.atan(np.imag(self.char_impedance) / np.real(self.char_impedance))
         self.power_factor = math.cos(phase_angle)
 
     def calc_cable_power(self):
@@ -121,13 +116,7 @@ class Cable:
         Calculate maximum power transfer through 3-phase cable in :math:`MW`.
         """
 
-        self.cable_power = (
-            np.sqrt(3)
-            * self.rated_voltage
-            * self.current_capacity
-            * self.power_factor
-            / 1000
-        )
+        self.cable_power = np.sqrt(3) * self.rated_voltage * self.current_capacity * self.power_factor / 1000
 
 
 class Plant:
@@ -190,10 +179,7 @@ class Plant:
 
         self.layout = config["plant"]["layout"].lower()
         if self.layout not in ("custom", "grid", "ring"):
-            raise ValueError(
-                "config: site: layout should be one of "
-                "'custom', 'ring', or 'grid'."
-            )
+            raise ValueError("config: site: layout should be one of " "'custom', 'ring', or 'grid'.")
         if self.layout != "custom":
             self._initialize_distances(config)
 
@@ -212,22 +198,16 @@ class Plant:
 
         self.turbine_distance = config["plant"].get("turbine_distance", None)
         if self.turbine_distance is None:
-            self.turbine_distance = (
-                rotor_diameter * config["plant"]["turbine_spacing"] / 1000.0
-            )
+            self.turbine_distance = rotor_diameter * config["plant"]["turbine_spacing"] / 1000.0
 
-        self.substation_distance = config["plant"].get(
-            "substation_distance", None
-        )
+        self.substation_distance = config["plant"].get("substation_distance", None)
         if self.substation_distance is None:
             self.substation_distance = self.turbine_distance
 
         self.row_distance = config["plant"].get("row_distance", None)
         if self.row_distance is None:
             if self.layout == "grid":
-                self.row_distance = (
-                    rotor_diameter * config["plant"]["row_spacing"] / 1000.0
-                )
+                self.row_distance = rotor_diameter * config["plant"]["row_spacing"] / 1000.0
             else:
                 self.row_distance = self.turbine_distance
 
@@ -359,9 +339,7 @@ class CableSystem(DesignPhase):
         y = a * np.cosh(x / a) - a
 
         if not np.isclose(y[-1], d):
-            print(
-                "Warning: Catenary calculation failed. Reverting to simple vertical profile."
-            )
+            print("Warning: Catenary calculation failed. Reverting to simple vertical profile.")
             return d
 
         return np.trapz(np.sqrt(1 + np.gradient(y, x) ** 2), x)
@@ -390,12 +368,7 @@ class CableSystem(DesignPhase):
             E.g.: {`Cable`.`name`: np.ndarray(float)}
         """
 
-        lengths = {
-            name: self.sections_cable_lengths[
-                np.where(self.sections_cables == name)
-            ]
-            for name in self.cables
-        }
+        lengths = {name: self.sections_cable_lengths[np.where(self.sections_cables == name)] for name in self.cables}
         return lengths
 
     @property
@@ -410,10 +383,7 @@ class CableSystem(DesignPhase):
             E.g.: {`Cable.name`: list(section_lengths)}
         """
 
-        total = {
-            name: sections.sum()
-            for name, sections in self.cable_lengths_by_type.items()
-        }
+        total = {name: sections.sum() for name, sections in self.cable_lengths_by_type.items()}
         return total
 
     @property
@@ -429,13 +399,12 @@ class CableSystem(DesignPhase):
         """
 
         cost = {
-            name: length * self.cables[name].cost_per_km
-            for name, length in self.total_cable_length_by_type.items()
+            name: length * self.cables[name].cost_per_km for name, length in self.total_cable_length_by_type.items()
         }
         return cost
 
     @property
-    def total_phase_cost(self):
+    def total_cost(self):
         """
         Calculates the cost of the array cabling system.
 
@@ -448,14 +417,8 @@ class CableSystem(DesignPhase):
         return sum(self.cost_by_type.values())
 
     @property
-    def total_phase_time(self):
-        return self._design.get("design_time", 0.0)
-
-    @property
     def detailed_output(self):
-        """
-        Returns detailed design outputs.
-        """
+        """Returns detailed design outputs."""
 
         _output = {
             "length": self.total_cable_length_by_type,
@@ -488,7 +451,7 @@ class CableSystem(DesignPhase):
             raise Exception(f"Has {self.__class__.__name__} been ran?")
 
         system = "_".join((self.cable_type, "system"))
-        output = {system: {"cables": {}}}
+        output = {system: {"cables": {}, "system_cost": self.total_cost}}
         _temp = output[system]["cables"]
 
         for name, cable in self.cables.items():
@@ -498,15 +461,9 @@ class CableSystem(DesignPhase):
                 sections = self.cable_lengths_by_type[name]
 
             try:
-                sections = [
-                    (data[0], count, *data[1:])
-                    for data, count in Counter(sections).items()
-                ]
+                sections = [(data[0], count, *data[1:]) for data, count in Counter(sections).items()]
             except IndexError:
-                sections = [
-                    (*data[:-1], data[-1])
-                    for data in Counter(sections).items()
-                ]
+                sections = [(*data[:-1], data[-1]) for data in Counter(sections).items()]
 
             if sections:
                 _temp[name] = {

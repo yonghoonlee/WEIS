@@ -338,8 +338,15 @@ END SUBROUTINE WrNR ! ( Str )
 SUBROUTINE WrOver ( Str )
 
    CHARACTER(*), INTENT(IN)     :: Str                                          !< The string to write to the screen.
+   
+   INTEGER                      :: MaxLen                                       !< maximum length of string to be written to the screen (cannot exceed ConRecL here)
 
-   WRITE (CU,'(''+'',A)')  Str
+   ! When the file is opened using CARRIAGECONTROL='FORTRAN', the "+" character allows writing over the previous line. However, the Fortran carriage control has been deleted from the Fortran standard.
+   
+   MaxLen = min(ConRecL-1, len(Str))
+   if (MaxLen > 0) then
+      WRITE (CU,'("+",A)')  Str(1:MaxLen)
+   end if
 
    RETURN
 END SUBROUTINE WrOver ! ( Str )
@@ -417,7 +424,7 @@ SUBROUTINE LoadDynamicLibProc ( DLL, ErrStat, ErrMsg )
          DLL%ProcAddr(i) = TRANSFER(ProcAddr, DLL%ProcAddr(i))  !convert INTEGER(LPVOID) to INTEGER(C_FUNPTR) [used only for compatibility with gfortran]
 
          IF(.NOT. C_ASSOCIATED(DLL%ProcAddr(i))) THEN
-            ErrStat = ErrID_Fatal
+            ErrStat = ErrID_Fatal + i - 1
             ErrMsg  = 'The procedure '//TRIM(DLL%ProcName(i))//' in file '//TRIM(DLL%FileName)//' could not be loaded.'
             RETURN
          END IF
