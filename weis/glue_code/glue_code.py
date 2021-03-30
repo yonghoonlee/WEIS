@@ -98,8 +98,8 @@ class WindPark(om.Group):
             self.connect('dac_ivc.te_flap_ext',             'blade.outer_shape_bem.span_ext')
 
             # Connections from blade struct parametrization to rotor load anlysis
-            self.connect('blade.ps.s_opt_spar_cap_ss',   'rlds_post.constr.s_opt_spar_cap_ss')
-            self.connect('blade.ps.s_opt_spar_cap_ps',   'rlds_post.constr.s_opt_spar_cap_ps')
+            self.connect('blade.opt_var.s_opt_spar_cap_ss',   'rlds_post.constr.s_opt_spar_cap_ss')
+            self.connect('blade.opt_var.s_opt_spar_cap_ps',   'rlds_post.constr.s_opt_spar_cap_ps')
             
             # Connections to run xfoil for te flaps
             self.connect('blade.pa.chord_param',                  'xf.chord')
@@ -226,7 +226,8 @@ class WindPark(om.Group):
             self.connect('drivese.above_yaw_cm',            'aeroelastic.nacelle_cm')
             self.connect('drivese.generator_I',             'aeroelastic.GenIner', src_indices=[0])
             self.connect('nacelle.gear_ratio',              'aeroelastic.gearbox_ratio')
-            self.connect('rp.powercurve.rated_efficiency', 'aeroelastic.generator_efficiency')
+            self.connect('rp.powercurve.rated_efficiency',  'aeroelastic.generator_efficiency')
+            self.connect('control.max_pitch_rate' ,         'aeroelastic.max_pitch_rate')
             self.connect('nacelle.gearbox_efficiency',      'aeroelastic.gearbox_efficiency')
             self.connect('nacelle.uptilt',                  'aeroelastic.tilt')
             self.connect('nacelle.overhang',                'aeroelastic.overhang')
@@ -299,6 +300,7 @@ class WindPark(om.Group):
             self.connect('xf.cd_interp_flaps',              'aeroelastic.airfoils_cd')
             self.connect('xf.cm_interp_flaps',              'aeroelastic.airfoils_cm')
             self.connect('blade.interp_airfoils.r_thick_interp', 'aeroelastic.rthick')
+            self.connect('blade.interp_airfoils.ac_interp', 'aeroelastic.ac')
             self.connect('re.rhoA',                    'aeroelastic.beam:rhoA')
             self.connect('re.EIxx',                    'aeroelastic.beam:EIxx')
             self.connect('re.EIyy',                    'aeroelastic.beam:EIyy')
@@ -326,6 +328,7 @@ class WindPark(om.Group):
             self.connect('sse_tune.aeroperf_tables.Cp',     'aeroelastic.Cp_aero_table')
             self.connect('sse_tune.aeroperf_tables.Ct',     'aeroelastic.Ct_aero_table')
             self.connect('sse_tune.aeroperf_tables.Cq',     'aeroelastic.Cq_aero_table')
+            self.connect('xf.flap_angles',                  'aeroelastic.airfoils_Ctrl')
 
             if modeling_options['flags']['mooring']:
                 self.connect("mooring.line_diameter", "aeroelastic.line_diameter")
@@ -342,11 +345,6 @@ class WindPark(om.Group):
                 self.connect("mooring.nodes_drag_area", "aeroelastic.nodes_drag_area")
                 self.connect("mooring.unstretched_length", "aeroelastic.unstretched_length")
                 self.connect("mooring.node_names", "aeroelastic.node_names")
-            
-            # Temporary
-            self.connect('xf.Re_loc',                       'aeroelastic.airfoils_Re_loc')
-            self.connect('xf.Ma_loc',                       'aeroelastic.airfoils_Ma_loc')
-            self.connect('xf.flap_angles',                  'aeroelastic.airfoils_Ctrl')
         
             if modeling_options['openfast']['dlc_settings']['run_blade_fatigue']:
                 self.connect('re.precomp.x_tc',                            'aeroelastic.x_tc')
@@ -633,7 +631,7 @@ class WindPark(om.Group):
             # Connections to turbine constraints
             if modeling_options['WISDEM']['TowerSE']['flag']:
                 self.connect('configuration.rotor_orientation', 'tcons_post.rotor_orientation')
-                self.connect('rlds_post.tip_pos.tip_deflection',     'tcons_post.tip_deflection')
+                self.connect('aeroelastic.max_TipDxc',          'tcons_post.tip_deflection')
                 self.connect('assembly.rotor_radius',           'tcons_post.Rtip')
                 self.connect('blade.outer_shape_bem.ref_axis',  'tcons_post.ref_axis_blade')
                 self.connect('hub.cone',                        'tcons_post.precone')
@@ -673,7 +671,7 @@ class WindPark(om.Group):
                 self.connect('financese_post.lcoe',          'outputs_2_screen_weis.lcoe')
                 
             self.connect('re.precomp.blade_mass',  'outputs_2_screen_weis.blade_mass')
-            self.connect('rlds_post.tip_pos.tip_deflection', 'outputs_2_screen_weis.tip_deflection')
+            self.connect('aeroelastic.max_TipDxc', 'outputs_2_screen_weis.tip_deflection')
             
             if modeling_options['openfast']['analysis_settings']['Analysis_Level'] == 2:
                 self.connect('aeroelastic.DEL_RootMyb',        'outputs_2_screen_weis.DEL_RootMyb')
