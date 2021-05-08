@@ -288,12 +288,12 @@ class FASTmodel(LinearFAST):
             case_inputs, dir_matrix=self.FAST_runDirectory, namebase=namebase
         )
         
-        if os.path.isfile(mdl.FAST_runDirectory + os.sep + 'case_matrix.txt'):
+        if os.path.isfile(self.FAST_runDirectory + os.sep + 'case_matrix.txt'):
             shutil.copy(
                 self.FAST_runDirectory + os.sep + 'case_matrix.txt',
                 self.FAST_runDirectory + os.sep + namebase + '_case_matrix.txt'
             )
-            os.remove(mdl.FAST_runDirectory + os.sep + 'case_matrix.txt')
+            os.remove(self.FAST_runDirectory + os.sep + 'case_matrix.txt')
             
         if os.path.isfile(self.FAST_runDirectory + os.sep + 'case_matrix.yaml'):
             shutil.copy(
