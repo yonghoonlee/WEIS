@@ -27,7 +27,7 @@ class LinearTurbineModel(object):
         '''
         if not fromMat:
             # figure out number of linear cases
-            out_prefix = 'lin'
+            out_prefix = ''
             out_suffix = '.outb'
             out_files    = glob.glob(os.path.join(lin_file,out_prefix+'*'+out_suffix))
 
