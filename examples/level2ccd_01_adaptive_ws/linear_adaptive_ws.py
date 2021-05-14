@@ -384,17 +384,16 @@ class linear_model():
 
 if __name__ == '__main__':
     
-    MODE = 2  # 1: LOAD, 2: RUN
-    Cores = 6
+    Cores = 100
     PtfmFactor = 1.0
     Level = 0
-    WindSpeeds = np.linspace(3.0, 25.0, 6).tolist()
+    WindSpeeds = np.linspace(3.0, 25.0, 23).tolist()
     FullWindSpeeds = []
     FullLinearModels = []
     
     fg = plt.figure()
     
-    for iter in range(0,5):
+    for iter in range(0,6):
         
         if len(WindSpeeds) == 0:
             break
