@@ -427,6 +427,7 @@ if __name__ == '__main__':
             mdl.FAST_yamlfile_in = FAST_yamlfile_in
             mdl.FAST_yamlfile_out = FAST_yamlfile_out
             mdl.path2dll = path2dll
+            WindSpeeds = mdl.WindSpeeds
         else:
             # Prepare plant design
             plantdesign_list = []
@@ -536,7 +537,8 @@ if __name__ == '__main__':
         sortedIdx = np.argsort(np.array(FullWindSpeeds))
         FullWindSpeeds = [FullWindSpeeds[idx] for idx in sortedIdx]
         FullLinearModels = [FullLinearModels[idx] for idx in sortedIdx]
-            
+        
+        # Calculate Hinf for full LMs
         for idx in range(1,len(FullLinearModels)-1):
             LM_L = FullLinearModels[idx-1]
             LM_C = FullLinearModels[idx]
@@ -567,10 +569,25 @@ if __name__ == '__main__':
             interp_Dm = interp1d(interp_wind_speed, interp_Dr, axis=0)
             Dr_interp = interp_Dm(LM_C.wind_speed)
             
+            # Create SS model of interpolated A, B, C, D matrices
             SSr_interp = signal.StateSpace(Ar_interp, Br_interp, Cr_interp, Dr_interp)
-            SSr_diff = LM_C.SSr - SSr_interp
-            FR_diff = SSr_diff.freqresp()
-            FullLinearModels[idx].Hinf = np.nanmax(np.abs(FR_diff[1]))
+            
+            # Interpolate frequency response of interpolated model to the same frequency range
+            FR_actual = LM_C.SSr.freqresp()
+            FR_actual_freq = FR_actual[0]
+            FR_actual_amp = FR_actual[1]
+            FR_interp = SSr_interp.freqresp()
+            FR_interp_freq = FR_interp[0]
+            FR_interp_amp_real = np.real(FR_interp[1])
+            FR_interp_amp_imag = np.imag(FR_interp[1])
+            interp_FR_real = interp1d(FR_interp_freq, FR_interp_amp_real)
+            interp_FR_imag = interp1d(FR_interp_freq, FR_interp_amp_imag)
+            FR_interp_amp = interp_FR_real(FR_actual_freq) + 1j*interp_FR_imag(FR_actual_freq)
+            FR_interp_freq = FR_actual_freq
+            
+            # Compute difference between actual and interpolated SS models
+            FR_diff = FR_actual_amp - FR_interp_amp
+            FullLinearModels[idx].Hinf = np.nanmax(np.abs(FR_diff))
             if FullLinearModels[idx].Hinf > 5.0:
                 FullLinearModels[idx].refine = True
                 FullLinearModels[idx+1].refine = True
@@ -590,3 +607,14 @@ if __name__ == '__main__':
         plt.draw()
         
         Level += 1
+
+    # Save LMs
+    LMfilename = os.path.join(
+        os.path.dirname(os.path.dirname(mdl.FAST_linearDirectory)),
+        mdl.casename + '_LM.pkl'
+    )
+    if not os.path.isfile(LMfilename):
+        with open(LMfilename, 'wb') as pkl:
+            pickle.dump(FullLinearModels, pkl)
+    
+    
