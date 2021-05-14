@@ -407,8 +407,26 @@ if __name__ == '__main__':
         pkl_filename = os.path.dirname(mdl.FAST_steadyDirectory) + '_mdl.pkl'
         
         if os.path.isfile(pkl_filename):
+            WEIS_root = mdl.WEIS_root
+            FAST_InputFile = mdl.FAST_InputFile
+            FAST_directory = mdl.FAST_directory
+            FAST_exe = mdl.FAST_exe
+            FAST_linearDirectory = mdl.FAST_linearDirectory
+            FAST_steadyDirectory = mdl.FAST_steadyDirectory
+            FAST_yamlfile_in = mdl.FAST_yamlfile_in
+            FAST_yamlfile_out = mdl.FAST_yamlfile_out
+            path2dll = mdl.path2dll
             with open(pkl_filename, 'rb') as pkl:
                 mdl = pickle.load(pkl)
+            mdl.WEIS_root = WEIS_root
+            mdl.FAST_InputFile = FAST_InputFile
+            mdl.FAST_directory = FAST_directory
+            mdl.FAST_exe = FAST_exe
+            mdl.FAST_linearDirectory = FAST_linearDirectory
+            mdl.FAST_steadyDirectory = FAST_steadyDirectory
+            mdl.FAST_yamlfile_in = FAST_yamlfile_in
+            mdl.FAST_yamlfile_out = FAST_yamlfile_out
+            mdl.path2dll = path2dll
         else:
             # Prepare plant design
             plantdesign_list = []
