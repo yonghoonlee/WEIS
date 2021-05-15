@@ -376,6 +376,7 @@ class linear_model():
         self.SS = None
         self.SSr = None
         self.Hinf = 0.0
+        self.Hinf_history = []
         self.xop = None
         self.xdop = None
         self.u_op = None
@@ -586,6 +587,7 @@ if __name__ == '__main__':
             # Frequency response difference
             FR_diff = FR_actual_complex - FR_interp_complex
             FullLinearModels[idx].Hinf = np.nanmax(np.abs(FR_diff))
+            FullLinearModels[idx].Hinf_history.append(FullLinearModels[idx].Hinf)
             if FullLinearModels[idx].Hinf > 5.0:
                 FullLinearModels[idx].refine = True
                 FullLinearModels[idx+1].refine = True
