@@ -541,7 +541,7 @@ if __name__ == '__main__':
         FullLinearModels = [FullLinearModels[idx] for idx in sortedIdx]
 
         # Initialize refine flag to False
-        for idx in range(0, len(FullLinearModels):
+        for idx in range(0, len(FullLinearModels)):
             FullLinearModels[idx].refine = False
         
         # Calculate Hinf for full LMs
