@@ -2,7 +2,7 @@
 
 import os, platform, shutil, pickle, glob
 import numpy as np
-from scipy import signal
+import control
 from scipy.interpolate import interp1d
 from matplotlib import pyplot as plt
 import weis
@@ -384,7 +384,7 @@ class linear_model():
 
 if __name__ == '__main__':
     
-    Cores = 100
+    Cores = 120
     PtfmFactor = 1.0
     Level = 0
     WindSpeeds = np.linspace(3.0, 25.0, 23).tolist()
@@ -393,7 +393,7 @@ if __name__ == '__main__':
     
     fg = plt.figure()
     
-    for iter in range(0,6):
+    for iter in range(0,7):
         
         if len(WindSpeeds) == 0:
             break
@@ -515,8 +515,8 @@ if __name__ == '__main__':
             Cr = C[idx_remain_out,:].reshape(1,C.shape[1])
             Dr = np.array(D[idx_remain_out,idx_remain_ctr])
             
-            LM.SS = signal.StateSpace(A, B, C, D)
-            LM.SSr = signal.StateSpace(Ar, Br, Cr, Dr)
+            LM.SS = control.ss(A, B, C, D)
+            LM.SSr = control.ss(Ar, Br, Cr, Dr)
             LM.num_state = num_state
             LM.num_control = num_control
             LM.num_output = num_output
@@ -570,23 +570,21 @@ if __name__ == '__main__':
             Dr_interp = interp_Dm(LM_C.wind_speed)
             
             # Create SS model of interpolated A, B, C, D matrices
-            SSr_interp = signal.StateSpace(Ar_interp, Br_interp, Cr_interp, Dr_interp)
+            SSr_interp = control.ss(Ar_interp, Br_interp, Cr_interp, Dr_interp)
             
-            # Interpolate frequency response of interpolated model to the same frequency range
-            FR_actual = LM_C.SSr.freqresp()
-            FR_actual_freq = FR_actual[0]
-            FR_actual_amp = FR_actual[1]
-            FR_interp = SSr_interp.freqresp()
-            FR_interp_freq = FR_interp[0]
-            FR_interp_amp_real = np.real(FR_interp[1])
-            FR_interp_amp_imag = np.imag(FR_interp[1])
-            interp_FR_real = interp1d(FR_interp_freq, FR_interp_amp_real)
-            interp_FR_imag = interp1d(FR_interp_freq, FR_interp_amp_imag)
-            FR_interp_amp = interp_FR_real(FR_actual_freq) + 1j*interp_FR_imag(FR_actual_freq)
-            FR_interp_freq = FR_actual_freq
-            
-            # Compute difference between actual and interpolated SS models
-            FR_diff = FR_actual_amp - FR_interp_amp
+            # Frequency response of actual and interpolated model
+            omega = np.logspace(-3,1,10001)
+            FR_actual_mag, FR_actual_phase, FR_actual_omega = LM_C.SSr.freqresp(omega)
+            FR_actual_complex = \
+                    np.squeeze(FR_actual_mag)*np.cos(FR_actual_phase) + \
+                    1j*np.squeeze(FR_actual_mag)*np.sin(FR_actual_phase)
+            FR_interp_mag, FR_interp_phase, FR_interp_omega = SSr_interp.freqresp(omega)
+            FR_interp_complex = \
+                    np.squeeze(FR_interp_mag)*np.cos(FR_interp_phase) + \
+                    1j*np.squeeze(FR_interp_mag)*np.sin(FR_interp_phase)
+
+            # Frequency response difference
+            FR_diff = FR_actual_complex - FR_interp_complex
             FullLinearModels[idx].Hinf = np.nanmax(np.abs(FR_diff))
             if FullLinearModels[idx].Hinf > 5.0:
                 FullLinearModels[idx].refine = True
