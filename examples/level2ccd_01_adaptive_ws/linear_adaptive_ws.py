@@ -387,6 +387,7 @@ if __name__ == '__main__':
     
     Cores = 120
     PtfmFactor = 1.0
+    Hinf_criteria = 3.0
     Level = 0
     WindSpeeds = np.linspace(3.0, 25.0, 23).tolist()
     FullWindSpeeds = []
@@ -394,7 +395,7 @@ if __name__ == '__main__':
     
     fg = plt.figure()
     
-    for iter in range(0,7):
+    for iter in range(0,6):
         
         if len(WindSpeeds) == 0:
             break
@@ -592,7 +593,7 @@ if __name__ == '__main__':
             FR_diff = FR_actual_complex - FR_interp_complex
             FullLinearModels[idx].Hinf = np.nanmax(np.abs(FR_diff))
             FullLinearModels[idx].Hinf_history.append(FullLinearModels[idx].Hinf)
-            if FullLinearModels[idx].Hinf > 5.0:
+            if FullLinearModels[idx].Hinf > Hinf_criteria:
                 FullLinearModels[idx].refine = True
                 FullLinearModels[idx+1].refine = True
                 
