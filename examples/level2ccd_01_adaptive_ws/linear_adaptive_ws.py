@@ -538,6 +538,10 @@ if __name__ == '__main__':
         sortedIdx = np.argsort(np.array(FullWindSpeeds))
         FullWindSpeeds = [FullWindSpeeds[idx] for idx in sortedIdx]
         FullLinearModels = [FullLinearModels[idx] for idx in sortedIdx]
+
+        # Initialize refine flag to False
+        for idx in range(0, len(FullLinearModels):
+            FullLinearModels[idx].refine = False
         
         # Calculate Hinf for full LMs
         for idx in range(1,len(FullLinearModels)-1):
