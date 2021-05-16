@@ -1,6 +1,6 @@
 # Yong Hoon Lee, University of Illinois at Urbana-Champaign
 
-import os, platform, shutil, pickle, glob
+import os, platform, shutil, pickle, glob, yaml
 import numpy as np
 import control
 from scipy.interpolate import interp1d
@@ -387,7 +387,8 @@ if __name__ == '__main__':
     
     Cores = 120
     PtfmFactor = 1.0
-    Hinf_criteria = 3.0
+    Hinf_criteria = 1.0
+    Max_iteration = 10
     Level = 0
     WindSpeeds = np.linspace(3.0, 25.0, 23).tolist()
     FullWindSpeeds = []
@@ -395,7 +396,7 @@ if __name__ == '__main__':
     
     fg = plt.figure()
     
-    for iter in range(0,6):
+    for iter in range(0,Max_iteration):
         
         if len(WindSpeeds) == 0:
             break
@@ -596,16 +597,24 @@ if __name__ == '__main__':
             if FullLinearModels[idx].Hinf > Hinf_criteria:
                 FullLinearModels[idx].refine = True
                 FullLinearModels[idx+1].refine = True
-                
+        
+        # Save Hinf info
+        hinf_filename = os.path.dirname(mdl.FAST_steadyDirectory) + '_Hinf.yaml'
+        tmp1 = [LM.wind_speed for LM in FullLinearModels]
+        tmp2 = [LM.Hinf for LM in FullLinearModels]
+        tmp3 = [LM.refine for LM in FullLinearModels]
+        with open(hinf_filename, 'wt') as yml:
+            yaml.safe_dump({'WindSpeeds':tmp1, 'Hinf':tmp2, 'refine':tmp3}, yml)
+
+        # Refine wind speeds
         WindSpeeds = []
         for idx in range(1,len(FullLinearModels)):
             if FullLinearModels[idx].refine:
-                WindSpeeds.append(
-                    (
-                        FullLinearModels[idx-1].wind_speed +
-                        FullLinearModels[idx].wind_speed
-                    )/2.0
-                )
+                wind_speed_L = FullLinearModels[idx-1].wind_speed
+                wind_speed_R = FullLinearModels[idx].wind_speed
+                WindSpeeds.append(wind_speed_L + 0.25*(wind_speed_R - wind_speed_L))
+                WindSpeeds.append(wind_speed_L + 0.5*(wind_speed_R - wind_speed_L))
+                WindSpeeds.append(wind_speed_L + 0.75*(wind_speed_R - wind_speed_L))
         
         Hinf = [LM.Hinf for LM in FullLinearModels]
         plt.plot(FullWindSpeeds,Hinf)
