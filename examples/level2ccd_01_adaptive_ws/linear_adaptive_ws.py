@@ -600,11 +600,11 @@ if __name__ == '__main__':
         
         # Save Hinf info
         hinf_filename = os.path.dirname(mdl.FAST_steadyDirectory) + '_Hinf.yaml'
-        tmp1 = [LM.wind_speed for LM in FullLinearModels]
-        tmp2 = [LM.Hinf for LM in FullLinearModels]
-        tmp3 = [LM.refine for LM in FullLinearModels]
-        with open(hinf_filename, 'wt') as yml:
-            yaml.safe_dump({'WindSpeeds':tmp1, 'Hinf':tmp2, 'refine':tmp3}, yml)
+        tmp1 = [float(LM.wind_speed) for LM in FullLinearModels]
+        tmp2 = [float(LM.Hinf) for LM in FullLinearModels]
+        tmp3 = [bool(LM.refine) for LM in FullLinearModels]
+        with open(hinf_filename, 'w') as yml:
+            yaml.dump({'WindSpeeds':tmp1, 'Hinf':tmp2, 'refine':tmp3}, yml)
 
         # Refine wind speeds
         WindSpeeds = []
